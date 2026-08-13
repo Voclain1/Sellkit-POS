@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Offline-first point of sale for retail counters — scan, checkout, and print 80mm receipts with or without a connection."
+    />
+    <!-- Kept in sync with the active theme by the bootstrap script below and by App.tsx. -->
+    <meta name="theme-color" content="#0f1524" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Sellkit" />
+    <title>Sellkit POS</title>
+    <script>
+      // Apply the theme to <html> before first paint, so the CSS variables in
+      // index.css are already correct for body and for every modal. React
+      // re-applies this on mount; this only avoids the light-theme flash.
+      (function () {
+        var isDark = localStorage.getItem('sellkit_theme') !== 'light';
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+
+        // Matches --color-card, so the standalone PWA title bar blends in.
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', isDark ? '#0f1524' : '#ffffff');
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
