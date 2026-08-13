@@ -1,0 +1,42 @@
+{
+  "name": "sellkit-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sellkit POS — offline-first point of sale. Monorepo root: orchestrates the Vite/React client and the Express/Prisma server.",
+  "license": "ISC",
+  "scripts": {
+    "dev": "concurrently -n server,client -c magenta,cyan -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+
+    "build": "npm run build:server && npm run build:client",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+
+    "start": "concurrently -n server,client -c magenta,cyan -k \"npm:start:server\" \"npm:start:client\"",
+    "start:client": "npm --prefix client run preview",
+    "start:server": "npm --prefix server run start",
+
+    "typecheck": "npm run typecheck:server && npm run typecheck:client",
+    "typecheck:client": "npm --prefix client run typecheck",
+    "typecheck:server": "npm --prefix server run typecheck",
+    "lint": "npm --prefix client run lint",
+
+    "db:generate": "npm --prefix server run prisma:generate",
+    "db:migrate": "npm --prefix server run prisma:migrate",
+    "db:deploy": "npm --prefix server run prisma:deploy",
+    "db:push": "npm --prefix server run prisma:push",
+    "db:seed": "npm --prefix server run seed",
+    "db:studio": "npm --prefix server run prisma:studio",
+
+    "install:all": "npm install && npm --prefix client install && npm --prefix server install",
+    "clean": "rimraf client/dist server/dist client/dev-dist"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
