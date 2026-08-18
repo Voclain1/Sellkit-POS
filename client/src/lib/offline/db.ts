@@ -1,7 +1,8 @@
-import type { Product, ProductVariant } from '../../types/pos';
+import type { CartItem, Customer, Product, ProductVariant } from '../../types/pos';
+import type { OrderModifiers } from '../cartTotals';
 
 const DB_NAME = 'sellkit_pos_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /**
  * `pending` — never tried, or only failed in a way worth retrying.
@@ -9,6 +10,15 @@ const DB_VERSION = 1;
  *             so it cannot wedge the queue behind it; needs a manual retry.
  */
 export type QueuedSaleStatus = 'pending' | 'failed';
+
+export interface HeldCart {
+  id: string;
+  label: string;
+  cart: CartItem[];
+  customer: Customer | null;
+  modifiers: OrderModifiers;
+  heldAt: string;
+}
 
 export interface QueuedOfflineSale {
   id: string;
@@ -35,6 +45,12 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('offline_sales')) {
         db.createObjectStore('offline_sales', { keyPath: 'id' });
+      }
+      // v2: carts parked mid-sale. Kept on disk rather than in memory so a
+      // reload, a crash or an accepted service-worker update cannot lose a
+      // customer's basket while they fetch a forgotten item.
+      if (!db.objectStoreNames.contains('held_carts')) {
+        db.createObjectStore('held_carts', { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -231,6 +247,58 @@ export async function removeQueuedSale(id: string): Promise<void> {
   try {
     const tx = db.transaction('offline_sales', 'readwrite');
     tx.objectStore('offline_sales').delete(id);
+    await txDone(tx);
+  } finally {
+    db.close();
+  }
+}
+
+/** Park a cart. Resolves once the write is committed. */
+export async function saveHeldCart(
+  cart: CartItem[],
+  customer: Customer | null,
+  modifiers: OrderModifiers,
+  label: string
+): Promise<HeldCart> {
+  const held: HeldCart = {
+    id: `held-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    label,
+    cart,
+    customer,
+    modifiers,
+    heldAt: new Date().toISOString(),
+  };
+
+  const db = await openDB();
+  try {
+    const tx = db.transaction('held_carts', 'readwrite');
+    tx.objectStore('held_carts').put(held);
+    await txDone(tx);
+    return held;
+  } finally {
+    db.close();
+  }
+}
+
+/** Parked carts, oldest first. */
+export async function getHeldCarts(): Promise<HeldCart[]> {
+  const db = await openDB();
+  try {
+    const tx = db.transaction('held_carts', 'readonly');
+    const carts = await requestDone(tx.objectStore('held_carts').getAll());
+    await txDone(tx);
+    return (carts as HeldCart[]).sort((a, b) => a.heldAt.localeCompare(b.heldAt));
+  } finally {
+    db.close();
+  }
+}
+
+/** Drop a parked cart — on recall, or when the cashier discards it. */
+export async function removeHeldCart(id: string): Promise<void> {
+  const db = await openDB();
+  try {
+    const tx = db.transaction('held_carts', 'readwrite');
+    tx.objectStore('held_carts').delete(id);
     await txDone(tx);
   } finally {
     db.close();

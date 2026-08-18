@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { UserCheck, Search, X, Loader2, UserX } from 'lucide-react';
 import { Header } from './components/pos/Header';
 import { ProductGrid } from './components/pos/ProductGrid';
-import { CartPanel } from './components/pos/CartPanel';
+import { CheckoutPanel } from './components/pos/CheckoutPanel';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { ReceiptModal } from './components/checkout/ReceiptModal';
 import { PinModal } from './components/auth/PinModal';
@@ -10,7 +10,15 @@ import { SyncStatusToast } from './components/common/SyncStatusToast';
 import { PwaUpdatePrompt } from './components/common/PwaUpdatePrompt';
 import { apiFetch, getAuthToken, clearAuthToken } from './lib/api';
 import { useOnlineStatus } from './lib/offline/sync';
-import { saveCatalog, getCachedVariants } from './lib/offline/db';
+import {
+  saveCatalog,
+  getCachedVariants,
+  saveHeldCart,
+  getHeldCarts,
+  removeHeldCart,
+  type HeldCart,
+} from './lib/offline/db';
+import { emptyModifiers, type OrderModifiers } from './lib/cartTotals';
 import type {
   User,
   Category,
@@ -39,6 +47,10 @@ export function App() {
 
   // Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
+  // Order-level discount, coupon and note. Owned here so the checkout modal
+  // charges exactly what the panel shows, and so a held cart can carry them.
+  const [modifiers, setModifiers] = useState<OrderModifiers>(emptyModifiers);
+  const [heldCarts, setHeldCarts] = useState<HeldCart[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Modals
@@ -257,6 +269,60 @@ export function App() {
     );
   };
 
+  // Hold / recall. Parked carts live in IndexedDB, not component state: a
+  // reload or an accepted service-worker update must not lose a basket.
+  const refreshHeldCarts = useCallback(async () => {
+    try {
+      setHeldCarts(await getHeldCarts());
+    } catch (err) {
+      console.error('Failed to read held carts:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshHeldCarts();
+  }, [refreshHeldCarts]);
+
+  const handleHoldCart = async () => {
+    if (cart.length === 0) return;
+    const label = selectedCustomer?.name || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      // Only clear the till once the cart is durably on disk.
+      await saveHeldCart(cart, selectedCustomer, modifiers, label);
+      setCart([]);
+      setSelectedCustomer(null);
+      setModifiers(emptyModifiers);
+      await refreshHeldCarts();
+    } catch (err) {
+      console.error('Failed to hold cart:', err);
+    }
+  };
+
+  const handleRecallCart = async (id: string) => {
+    const held = heldCarts.find((h) => h.id === id);
+    if (!held) return;
+    // Recalling onto a started cart would silently merge two customers' baskets.
+    if (cart.length > 0) {
+      await handleHoldCart();
+    }
+    setCart(held.cart);
+    setSelectedCustomer(held.customer);
+    setModifiers(held.modifiers ?? emptyModifiers);
+    try {
+      await removeHeldCart(id);
+    } finally {
+      await refreshHeldCarts();
+    }
+  };
+
+  const handleDiscardHeldCart = async (id: string) => {
+    try {
+      await removeHeldCart(id);
+    } finally {
+      await refreshHeldCarts();
+    }
+  };
+
   const handleAuthSuccess = async (user: User, shift?: TillShift) => {
     setCurrentUser(user);
     if (shift) setCurrentShift(shift);
@@ -271,6 +337,7 @@ export function App() {
     setSession(null);
     setCart([]);
     setSelectedCustomer(null);
+    setModifiers(emptyModifiers);
     setIsPinModalOpen(true);
   };
 
@@ -278,6 +345,7 @@ export function App() {
     setIsCheckoutModalOpen(false);
     setCart([]);
     setSelectedCustomer(null);
+    setModifiers(emptyModifiers);
     setCompletedReceipt(receipt);
     fetchCatalogData(); // refresh stock numbers
     refreshQueue(); // an offline sale just joined the queue — show it immediately
@@ -310,8 +378,8 @@ export function App() {
           onScanBarcode={handleScanBarcode}
         />
 
-        {/* Right Panel: Cart Panel */}
-        <CartPanel
+        {/* Right Panel: Checkout Panel */}
+        <CheckoutPanel
           cart={cart}
           customer={selectedCustomer}
           taxRate={session?.taxRate}
@@ -320,7 +388,13 @@ export function App() {
           onDiscount={handleApplyItemDiscount}
           onClearCart={() => setCart([])}
           onOpenCustomer={() => setIsCustomerModalOpen(true)}
-          onCharge={() => setIsCheckoutModalOpen(true)}
+          onProceed={() => setIsCheckoutModalOpen(true)}
+          modifiers={modifiers}
+          onModifiersChange={setModifiers}
+          heldCarts={heldCarts}
+          onHoldCart={handleHoldCart}
+          onRecallCart={handleRecallCart}
+          onDiscardHeldCart={handleDiscardHeldCart}
         />
       </div>
 
@@ -349,6 +423,7 @@ export function App() {
         outletId={session?.outlet.id}
         tillId={session?.till.id}
         taxRate={session?.taxRate}
+        modifiers={modifiers}
         isOnline={isOnline}
         onClose={() => setIsCheckoutModalOpen(false)}
         onSuccess={handleCheckoutSuccess}

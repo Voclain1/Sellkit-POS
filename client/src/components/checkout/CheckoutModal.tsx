@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import type { CartItem, Customer, PaymentMethod, PaymentSplitInput, SaleReceipt } from '../../types/pos';
 import { apiFetch } from '../../lib/api';
 import { queueOfflineSale } from '../../lib/offline/db';
+import { computeCartTotals, emptyModifiers, type OrderModifiers } from '../../lib/cartTotals';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -13,6 +14,13 @@ interface CheckoutModalProps {
   outletId?: string;
   tillId?: string;
   taxRate?: number;
+  /**
+   * Order-level discount / coupon / note from the checkout panel. Totals are
+   * derived from the same helper the panel uses, so the amount charged is always
+   * the amount the cashier read out. The note is displayed only — Sale has no
+   * notes column.
+   */
+  modifiers?: OrderModifiers;
   isOnline: boolean;
   onClose: () => void;
   onSuccess: (receipt: SaleReceipt) => void;
@@ -25,6 +33,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   outletId,
   tillId,
   taxRate = 0.08,
+  modifiers = emptyModifiers,
   isOnline,
   onClose,
   onSuccess,
@@ -40,13 +49,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Calculation totals
-  const subtotal = cart.reduce((sum, item) => {
-    const effectivePrice = item.unitPrice * (1 - (item.discount || 0) / 100);
-    return sum + effectivePrice * item.quantity;
-  }, 0);
-  const taxAmount = subtotal * taxRate;
-  const netTotal = subtotal + taxAmount;
+  // Calculation totals — single source of truth, shared with CheckoutPanel.
+  const {
+    tax: taxAmount,
+    orderDiscount,
+    total: netTotal,
+  } = computeCartTotals(cart, taxRate, modifiers);
 
   const tenderedAmount = parseFloat(tenderedAmountInput) || 0;
   const changeDue = Math.max(0, tenderedAmount - netTotal);
@@ -101,7 +109,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         })),
         paymentSplits: splits,
         tax: taxAmount,
-        discount: 0,
+        discount: orderDiscount,
         isOfflineSync: !isOnline,
       };
 
@@ -120,7 +128,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           receiptNumber: queuedItem.id,
           totalAmount: netTotal,
           tax: taxAmount,
-          discount: 0,
+          discount: orderDiscount,
           isOfflineSync: true,
           createdAt: new Date().toISOString(),
           user: { name: 'Offline Cashier', email: 'cashier@sellkitpos.com' },
@@ -239,6 +247,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </button>
             </div>
+
+            {modifiers.note.trim() && (
+              <div className="mt-4 p-3 bg-surface border border-border rounded-xl">
+                <span className="text-[10px] font-bold uppercase text-muted">Order note</span>
+                <p className="text-xs mt-1 whitespace-pre-wrap break-words">{modifiers.note}</p>
+              </div>
+            )}
 
             {/* Attached Customer Info */}
             {customer && (
