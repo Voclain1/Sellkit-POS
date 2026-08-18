@@ -1,7 +1,22 @@
 import { useState } from 'react';
 import { Lock, ArrowRight, DollarSign } from 'lucide-react';
-import { apiFetch, setAuthToken } from '../../lib/api';
+import { apiFetch, setAuthToken, ApiError } from '../../lib/api';
 import type { User, TillShift, BootstrapData } from '../../types/pos';
+
+/**
+ * A dead API and a wrong PIN are different problems. Reporting both as
+ * "Invalid PIN" sends the cashier hunting for a credential that was never wrong.
+ */
+function describeLoginError(e: unknown, afterAuth: boolean): string {
+  if (e instanceof ApiError && e.status === 0) {
+    return 'Cannot reach the server. Check that the API is running, then try again.';
+  }
+  if (!afterAuth && e instanceof ApiError && e.status === 401) {
+    return 'Incorrect PIN. Try again.';
+  }
+  const detail = e instanceof Error ? e.message : 'Unknown error';
+  return afterAuth ? `Signed in, but the terminal could not start: ${detail}` : detail;
+}
 
 interface Props {
   isOpen: boolean;
@@ -26,11 +41,17 @@ export function PinModal({ isOpen, onSuccess }: Props) {
   const submitPin = async () => {
     if (pin.length !== 4) { setError('Enter 4-digit PIN'); return; }
     setLoading(true); setError('');
+
+    // Whether the PIN itself was accepted. Anything that fails past that point
+    // is a terminal problem, not a credential problem.
+    let authed = false;
+
     try {
       const data = await apiFetch('/auth/pin-login', { method: 'POST', body: JSON.stringify({ pin }) });
       setAuthToken(data.token);
       const user: User = data.user;
       setAuthedUser(user);
+      authed = true;
 
       // Resolve this terminal's outlet/till, and reuse the shift if one is already
       // open on the till (a hand-over mid-shift must not open a second one).
@@ -39,8 +60,12 @@ export function PinModal({ isOpen, onSuccess }: Props) {
 
       if (bootstrap.shift) { onSuccess(user, bootstrap.shift); return; }
       setShowFloat(true);
-    } catch (e: any) {
-      setError(e.message || 'Invalid PIN'); setPin('');
+    } catch (e: unknown) {
+      const wrongPin = !authed && e instanceof ApiError && e.status === 401;
+      setError(describeLoginError(e, authed));
+      // Only wipe the keypad when the PIN was genuinely rejected -- clearing it
+      // after a network blip just makes the cashier retype a correct PIN.
+      if (wrongPin) setPin('');
     } finally { setLoading(false); }
   };
 

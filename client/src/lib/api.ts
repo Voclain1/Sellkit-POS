@@ -1,4 +1,45 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
+const DEFAULT_API_BASE_URL = 'http://localhost:3000/api';
+
+/**
+ * Resolve VITE_API_BASE_URL, tolerating the ways it gets mangled in a hosting
+ * dashboard.
+ *
+ * The value is inlined at build time, so a bad one is baked into the bundle and
+ * only surfaces in production. The nastiest case is a markdown link pasted out
+ * of rendered docs -- "[https://host/api](https://host/api)". That has no URL
+ * scheme, so the browser resolves it as a *relative* path against the frontend
+ * origin, and every API call 404s against the static host instead of the API.
+ * Repair what can be repaired safely, and say so loudly rather than fail silently.
+ */
+function resolveApiBaseUrl(): string {
+  const raw = (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim();
+
+  // "[label](target)" -> target
+  const markdown = raw.match(/^\[([^\]]*)\]\((.+)\)$/);
+  const unwrapped = (markdown ? markdown[2] : raw).trim();
+
+  // Drop stray quotes/angle brackets and any trailing slash, so we never build a "//" path.
+  const cleaned = unwrapped.replace(/^['"`<]+|['"`>]+$/g, '').replace(/\/+$/, '');
+
+  if (cleaned !== raw) {
+    console.error(
+      'VITE_API_BASE_URL is malformed (' + JSON.stringify(raw) + '). Using ' +
+        JSON.stringify(cleaned) + '. Fix it in the hosting environment and redeploy - ' +
+        'Vite inlines this at build time, so changing it requires a rebuild.'
+    );
+  }
+
+  if (!/^https?:\/\//i.test(cleaned) && !cleaned.startsWith('/')) {
+    console.error(
+      'VITE_API_BASE_URL (' + JSON.stringify(cleaned) + ') is neither an absolute URL nor a ' +
+        'root-relative path, so every request resolves against the frontend origin and 404s.'
+    );
+  }
+
+  return cleaned || DEFAULT_API_BASE_URL;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 /** Error carrying the HTTP status, so callers can tell "retry later" from "never going to work". */
 export class ApiError extends Error {
