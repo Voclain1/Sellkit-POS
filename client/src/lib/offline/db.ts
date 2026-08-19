@@ -304,3 +304,35 @@ export async function removeHeldCart(id: string): Promise<void> {
     db.close();
   }
 }
+
+/**
+ * Apply sold quantities to the cached catalog.
+ *
+ * Online the next catalog fetch overwrites this with server truth, but offline
+ * the cache *is* the truth: without this, reloading a terminal mid-shift would
+ * resurrect stock that has already left the shelf.
+ */
+export async function adjustCachedStock(soldByVariantId: Record<string, number>): Promise<void> {
+  const ids = Object.keys(soldByVariantId);
+  if (ids.length === 0) return;
+
+  let db: IDBDatabase | undefined;
+  try {
+    db = await openDB();
+    const tx = db.transaction('variants', 'readwrite');
+    const store = tx.objectStore('variants');
+    for (const id of ids) {
+      const existing = (await requestDone(store.get(id))) as ProductVariant | undefined;
+      if (!existing) continue;
+      store.put({
+        ...existing,
+        stockQuantity: Math.max(0, existing.stockQuantity - soldByVariantId[id]),
+      });
+    }
+    await txDone(tx);
+  } catch (err) {
+    console.error('Failed to adjust cached stock:', err);
+  } finally {
+    db?.close();
+  }
+}

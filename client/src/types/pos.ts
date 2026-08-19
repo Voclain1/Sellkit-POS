@@ -70,6 +70,15 @@ export interface CartItem {
   discount: number;
 }
 
+/**
+ * Outcome of resolving a scanned code. "Not found" and "found but out of stock"
+ * need different words at the till, so a bare boolean is not enough.
+ */
+export interface ScanResult {
+  ok: boolean;
+  message?: string;
+}
+
 export interface Customer {
   id: string;
   name: string;

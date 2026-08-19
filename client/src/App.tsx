@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { UserCheck, Search, X, Loader2, UserX } from 'lucide-react';
 import { Header } from './components/pos/Header';
 import { ProductGrid } from './components/pos/ProductGrid';
 import { CheckoutPanel } from './components/pos/CheckoutPanel';
+import { BarcodeScannerModal } from './components/pos/BarcodeScannerModal';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { ReceiptModal } from './components/checkout/ReceiptModal';
 import { PinModal } from './components/auth/PinModal';
@@ -14,6 +15,7 @@ import {
   saveCatalog,
   getCachedVariants,
   saveHeldCart,
+  adjustCachedStock,
   getHeldCarts,
   removeHeldCart,
   type HeldCart,
@@ -26,6 +28,7 @@ import type {
   ProductVariant,
   CartItem,
   Customer,
+  ScanResult,
   TillShift,
   SaleReceipt,
   BootstrapData,
@@ -57,6 +60,7 @@ export function App() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [completedReceipt, setCompletedReceipt] = useState<SaleReceipt | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
   // Dark Mode
@@ -191,8 +195,32 @@ export function App() {
     return () => clearTimeout(t);
   }, [customerSearchQuery, isCustomerModalOpen, fetchCustomers]);
 
-  // Handle Cart Add
-  const handleAddToCart = (variant: ProductVariant) => {
+  // Units of each variant already on the current order. Drives both the "N in
+  // stock" figure on the grid and the guard below.
+  const cartQuantities = useMemo(
+    () =>
+      cart.reduce<Record<string, number>>((acc, item) => {
+        acc[item.variant.id] = item.quantity;
+        return acc;
+      }, {}),
+    [cart]
+  );
+
+  // Handle Cart Add. Returns why it refused, so a scan can say "out of stock"
+  // rather than the misleading "no product matches".
+  const handleAddToCart = (variant: ProductVariant): ScanResult => {
+    const inCart = cartQuantities[variant.id] ?? 0;
+    if (variant.stockQuantity - inCart <= 0) {
+      const name = variant.product?.name ?? variant.sku;
+      return {
+        ok: false,
+        message:
+          variant.stockQuantity <= 0
+            ? `${name} is out of stock`
+            : `All ${variant.stockQuantity} of ${name} are already on this order`,
+      };
+    }
+
     setCart((prev) => {
       const existingIdx = prev.findIndex((i) => i.variant.id === variant.id);
       if (existingIdx >= 0) {
@@ -213,37 +241,35 @@ export function App() {
         },
       ];
     });
+
+    return { ok: true };
   };
 
   // Handle Barcode Scanner Event. Returns whether the code matched a product,
   // so the grid can tell the cashier when a scan found nothing.
-  const handleScanBarcode = async (scannedBarcode: string): Promise<boolean> => {
+  const handleScanBarcode = async (scannedBarcode: string): Promise<ScanResult> => {
     const code = scannedBarcode.toLowerCase();
     const match = variants.find(
       (v) => v.barcode?.toLowerCase() === code || v.sku?.toLowerCase() === code
     );
 
-    if (match) {
-      handleAddToCart(match);
-      return true;
-    }
+    if (match) return handleAddToCart(match);
 
     // Not in the cached catalog — the server can still resolve it by barcode/SKU.
-    if (!isOnline) return false;
+    if (!isOnline) {
+      return { ok: false, message: `"${scannedBarcode}" is not in the offline catalog` };
+    }
 
     try {
       const results: ProductVariant[] = await apiFetch(
         `/products/search?barcode=${encodeURIComponent(scannedBarcode)}`
       );
-      if (results.length > 0) {
-        handleAddToCart(results[0]);
-        return true;
-      }
+      if (results.length > 0) return handleAddToCart(results[0]);
     } catch (err) {
       console.error('Barcode lookup failed:', err);
     }
 
-    return false;
+    return { ok: false, message: `No product matches "${scannedBarcode}"` };
   };
 
   // Cart Handlers
@@ -342,6 +368,20 @@ export function App() {
   };
 
   const handleCheckoutSuccess = (receipt: SaleReceipt) => {
+    // Take the sold units off the shelf immediately. Online the catalog refetch
+    // below replaces this with server truth; offline this local figure is the
+    // only thing standing between the next cashier and overselling.
+    const sold = cart.reduce<Record<string, number>>((acc, item) => {
+      acc[item.variant.id] = (acc[item.variant.id] ?? 0) + item.quantity;
+      return acc;
+    }, {});
+    setVariants((prev) =>
+      prev.map((v) =>
+        sold[v.id] ? { ...v, stockQuantity: Math.max(0, v.stockQuantity - sold[v.id]) } : v
+      )
+    );
+    void adjustCachedStock(sold);
+
     setIsCheckoutModalOpen(false);
     setCart([]);
     setSelectedCustomer(null);
@@ -376,6 +416,11 @@ export function App() {
           variants={variants}
           onAddToCart={handleAddToCart}
           onScanBarcode={handleScanBarcode}
+          onOpenScanner={() => setIsScannerOpen(true)}
+          cartQuantities={cartQuantities}
+          scannerEnabled={
+            !isCheckoutModalOpen && !isPinModalOpen && !isCustomerModalOpen && !completedReceipt
+          }
         />
 
         {/* Right Panel: Checkout Panel */}
@@ -411,6 +456,13 @@ export function App() {
 
       {/* New app version available — never applied without the cashier's say-so */}
       <PwaUpdatePrompt hasUnfinishedWork={cart.length > 0 || pendingSyncCount > 0} />
+
+      {/* Camera barcode scanner (F1) */}
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onDetected={handleScanBarcode}
+      />
 
       {/* Cashier PIN / Shift Overlay */}
       <PinModal isOpen={isPinModalOpen} onSuccess={handleAuthSuccess} />

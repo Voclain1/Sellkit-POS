@@ -1,31 +1,38 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Barcode, AlertTriangle, Filter, Plus } from 'lucide-react';
-import type { Category, ProductVariant } from '../../types/pos';
+import { Search, Barcode, AlertTriangle, Filter, Plus, Camera } from 'lucide-react';
+import type { Category, ProductVariant, ScanResult } from '../../types/pos';
+import { useHardwareScanner } from '../../hooks/useHardwareScanner';
 
 interface Props {
   categories: Category[];
   variants: ProductVariant[];
-  onAddToCart: (v: ProductVariant) => void;
-  /** Resolves true when the code matched a product and was added to the cart. */
-  onScanBarcode: (code: string) => Promise<boolean>;
+  onAddToCart: (v: ProductVariant) => ScanResult;
+  /** Resolves ok when the code matched a product and was added to the cart. */
+  onScanBarcode: (code: string) => Promise<ScanResult>;
+  /** Opens the camera scanner overlay (F1, or the scanner button). */
+  onOpenScanner: () => void;
+  /** False while a modal owns the till, so scans cannot alter a cart mid-payment. */
+  scannerEnabled?: boolean;
+  /** Units of each variant already in the cart, keyed by variant id. */
+  cartQuantities?: Record<string, number>;
 }
 
-/**
- * Longest gap between keystrokes still treated as one scan. A hardware scanner
- * bursts in ~10-30ms; this is loose enough that a human typing a code by hand
- * (or a test dispatching synthetic events) is not silently discarded.
- */
-const SCAN_KEY_GAP_MS = 500;
-/** How stale the buffer may be when Enter arrives, so an old buffer cannot fire a phantom scan. */
-const SCAN_COMMIT_WINDOW_MS = 2000;
+/** At or below this many units the card warns instead of just showing a count. */
+const LOW_STOCK_THRESHOLD = 10;
 
-export function ProductGrid({ categories, variants, onAddToCart, onScanBarcode }: Props) {
+export function ProductGrid({
+  categories,
+  variants,
+  onAddToCart,
+  onScanBarcode,
+  onOpenScanner,
+  scannerEnabled = true,
+  cartQuantities = {},
+}: Props) {
   const [query, setQuery] = useState('');
   const [catId, setCatId] = useState('all');
   const [scanNotice, setScanNotice] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const bufRef = useRef('');
-  const lastKeyRef = useRef(0);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const flashNotice = (message: string) => {
@@ -39,51 +46,36 @@ export function ProductGrid({ categories, variants, onAddToCart, onScanBarcode }
   const submitCode = async (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
-    const matched = await onScanBarcode(trimmed);
-    if (matched) {
+    const result = await onScanBarcode(trimmed);
+    if (result.ok) {
       setQuery('');
       flashNotice('');
     } else {
-      flashNotice(`No product matches "${trimmed}"`);
+      flashNotice(result.message ?? `No product matches "${trimmed}"`);
     }
   };
 
-  // Keep the listener stable while still calling the latest handler.
+  // USB/Bluetooth scanners present as keyboards; the hook buffers their bursts.
   const submitCodeRef = useRef(submitCode);
   submitCodeRef.current = submitCode;
+  useHardwareScanner({
+    enabled: scannerEnabled,
+    onScan: (code) => void submitCodeRef.current(code),
+  });
 
-  // Hardware scanners type into whatever has focus, so listen at the window for
-  // burst input and let the search field handle its own Enter (below). Previously
-  // an Enter in the search box did nothing at all, and the buffer was wiped 200ms
-  // after the last keystroke, which discarded anything typed at human speed.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'F1') { e.preventDefault(); inputRef.current?.focus(); return; }
-      const tag = (document.activeElement as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-
-      const now = Date.now();
-
-      if (e.key.length === 1) {
-        if (now - lastKeyRef.current > SCAN_KEY_GAP_MS) bufRef.current = '';
-        lastKeyRef.current = now;
-        bufRef.current += e.key;
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        const code = bufRef.current;
-        bufRef.current = '';
-        if (code.length >= 3 && now - lastKeyRef.current <= SCAN_COMMIT_WINDOW_MS) {
-          e.preventDefault();
-          void submitCodeRef.current(code);
-        }
+      if (e.key === 'F1') {
+        e.preventDefault();
+        onOpenScanner();
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        inputRef.current?.focus();
       }
     };
-
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [onOpenScanner]);
 
   const filtered = variants.filter(v => {
     if (catId !== 'all' && v.product?.categoryId !== catId) return false;
@@ -109,27 +101,36 @@ export function ProductGrid({ categories, variants, onAddToCart, onScanBarcode }
               // typing a code or a name: if the filter has narrowed to exactly one
               // product, Enter rings it up; otherwise treat the text as a code.
               if (filtered.length === 1) {
-                onAddToCart(filtered[0]);
-                setQuery('');
+                const result = onAddToCart(filtered[0]);
+                if (result.ok) setQuery('');
+                else flashNotice(result.message ?? 'Cannot add that item');
                 return;
               }
               void submitCode(query);
             }}
-            placeholder="Search or scan — press Enter to add (F1)"
+            placeholder="Search or scan — press Enter to add (F3)"
             className="w-full pl-9 pr-14 py-2.5 bg-surface border border-border rounded-xl text-sm font-medium placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand" />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 bg-border/60 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-muted">F1</kbd>
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 bg-border/60 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold text-muted">F3</kbd>
         </div>
-        <div
+        <button
+          onClick={onOpenScanner}
+          title={scanNotice || 'Scan with the camera (F1)'}
           className={`flex items-center gap-1.5 px-3 border rounded-xl text-[11px] font-semibold shrink-0 transition ${
             scanNotice
               ? 'bg-danger/10 border-danger/30 text-danger'
-              : 'bg-surface border-border text-muted'
+              : 'bg-surface border-border text-muted hover:border-brand/60 hover:text-foreground'
           }`}
-          title={scanNotice || 'Barcode scanner ready'}
         >
-          <Barcode className={`w-4 h-4 ${scanNotice ? 'text-danger' : 'text-brand animate-pulse'}`} />
-          <span className="hidden md:inline max-w-[220px] truncate">{scanNotice || 'Scanner'}</span>
-        </div>
+          {scanNotice ? (
+            <Barcode className="w-4 h-4 text-danger" />
+          ) : (
+            <Camera className="w-4 h-4 text-brand" />
+          )}
+          <span className="hidden md:inline max-w-[220px] truncate">{scanNotice || 'Scan'}</span>
+          {!scanNotice && (
+            <kbd className="hidden md:inline bg-border/60 px-1 py-0.5 rounded text-[9px] font-mono">F1</kbd>
+          )}
+        </button>
       </div>
 
       {/* Category pills */}
@@ -159,21 +160,28 @@ export function ProductGrid({ categories, variants, onAddToCart, onScanBarcode }
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
             {filtered.map(v => {
-              const low = v.stockQuantity <= 10;
-              const out = v.stockQuantity <= 0;
+              // What is left on the shelf once the open cart is accounted for —
+              // the number that decides whether one more tap is allowed.
+              const available = v.stockQuantity - (cartQuantities[v.id] ?? 0);
+              const out = available <= 0;
+              const low = !out && available <= LOW_STOCK_THRESHOLD;
               return (
-                <button key={v.id} onClick={() => !out && onAddToCart(v)} disabled={out}
+                <button key={v.id} onClick={() => { if (!out) onAddToCart(v); }} disabled={out}
+                  title={out ? 'Out of stock' : undefined}
                   className={`group flex flex-col justify-between p-3 bg-card border rounded-xl text-left transition active:scale-[0.97] ${out ? 'opacity-40 cursor-not-allowed border-border' : low ? 'border-amber-500/40 hover:border-amber-500' : 'border-border hover:border-brand/60'}`}>
                   <div className="flex items-center justify-between gap-1 mb-1.5">
                     <span className="text-[9px] font-bold font-mono text-muted bg-surface px-1.5 py-0.5 rounded border border-border truncate">{v.sku}</span>
                     {out ? <span className="bg-danger/15 text-danger text-[9px] font-bold px-1.5 py-0.5 rounded border border-danger/25 shrink-0">OUT</span>
-                     : low ? <span className="bg-amber-500/15 text-amber-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500/25 flex items-center gap-0.5 shrink-0"><AlertTriangle className="w-2.5 h-2.5" />{v.stockQuantity}</span>
+                     : low ? <span className="bg-amber-500/15 text-amber-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500/25 flex items-center gap-0.5 shrink-0"><AlertTriangle className="w-2.5 h-2.5" />{available}</span>
                      : null}
                   </div>
                   <div className="min-h-[32px]">
                     <h3 className="font-bold text-xs leading-tight line-clamp-2 group-hover:text-brand transition">{v.product?.name ?? 'Product'}</h3>
                     <span className="text-[10px] text-muted">{v.name && v.name !== 'Standard' ? v.name : v.product?.category?.name ?? ''}</span>
                   </div>
+                  <span className={`mt-1 text-[10px] font-semibold ${out ? 'text-danger' : low ? 'text-amber-500' : 'text-muted'}`}>
+                    {out ? 'Out of stock' : low ? `Low Stock: ${available} left` : `${available} in stock`}
+                  </span>
                   <div className="mt-2 pt-2 border-t border-border flex items-center justify-between">
                     <span className="text-sm font-extrabold font-mono text-success">${Number(v.price).toFixed(2)}</span>
                     <div className="w-6 h-6 rounded-md bg-brand/10 text-brand group-hover:bg-brand group-hover:text-brand-foreground flex items-center justify-center transition">
