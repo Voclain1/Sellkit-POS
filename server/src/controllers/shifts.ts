@@ -180,3 +180,87 @@ export const getCurrentShift = async (req: AuthenticatedRequest, res: Response):
     res.status(500).json({ error: 'Failed to fetch active shift', details: error.message });
   }
 };
+
+/**
+ * Shift totals for the X/Z report (/api/shifts/:id/summary).
+ *
+ * Serves both reports: run mid-shift it is an X-report over the window
+ * `openedAt -> now`; run after closing it is the Z-report, bounded by
+ * `closedAt` so late sales on the till cannot drift into a reconciled shift.
+ */
+export const getShiftSummary = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const shift = await prisma.tillReconciliation.findUnique({
+      where: { id },
+      include: {
+        till: { include: { outlet: true } },
+        user: { select: { id: true, name: true, email: true, role: true } },
+      },
+    });
+
+    if (!shift) {
+      res.status(404).json({ error: 'Shift record not found' });
+      return;
+    }
+
+    const saleWindow = {
+      tillId: shift.tillId,
+      createdAt: {
+        gte: shift.openedAt,
+        ...(shift.closedAt ? { lte: shift.closedAt } : {}),
+      },
+    };
+
+    const [saleTotals, splitTotals] = await Promise.all([
+      prisma.sale.aggregate({
+        where: saleWindow,
+        _count: { _all: true },
+        _sum: { totalAmount: true, tax: true, discount: true },
+      }),
+      prisma.paymentSplit.groupBy({
+        by: ['paymentMethod'],
+        where: { sale: saleWindow },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const byPaymentMethod = splitTotals.map((row) => ({
+      paymentMethod: row.paymentMethod,
+      amount: Number(row._sum.amount || 0),
+      count: row._count._all,
+    }));
+
+    const cashSales = byPaymentMethod
+      .filter((row) => row.paymentMethod === 'CASH')
+      .reduce((sum, row) => sum + row.amount, 0);
+
+    const openingFloat = Number(shift.openingFloat);
+    const expectedCash = openingFloat + cashSales;
+    // A closed shift reports what was actually counted; an open one has not been
+    // counted yet, so variance is deliberately null rather than a misleading 0.
+    const actualCash = shift.actualCash === null ? null : Number(shift.actualCash);
+    const discrepancy = actualCash === null ? null : actualCash - expectedCash;
+
+    res.json({
+      shift,
+      isClosed: Boolean(shift.closedAt),
+      periodStart: shift.openedAt,
+      periodEnd: shift.closedAt ?? new Date(),
+      salesCount: saleTotals._count._all,
+      grossSales: Number(saleTotals._sum.totalAmount || 0),
+      taxTotal: Number(saleTotals._sum.tax || 0),
+      discountTotal: Number(saleTotals._sum.discount || 0),
+      byPaymentMethod,
+      openingFloat,
+      cashSales,
+      expectedCash,
+      actualCash,
+      discrepancy,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to build shift summary', details: error.message });
+  }
+};

@@ -4,6 +4,9 @@ import { Header } from './components/pos/Header';
 import { ProductGrid } from './components/pos/ProductGrid';
 import { CheckoutPanel } from './components/pos/CheckoutPanel';
 import { BarcodeScannerModal } from './components/pos/BarcodeScannerModal';
+import { OpenShiftModal } from './components/pos/OpenShiftModal';
+import { CloseShiftModal } from './components/pos/CloseShiftModal';
+import { ShiftSummaryReceipt } from './components/reports/ShiftSummaryReceipt';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { ReceiptModal } from './components/checkout/ReceiptModal';
 import { PinModal } from './components/auth/PinModal';
@@ -29,6 +32,7 @@ import type {
   CartItem,
   Customer,
   ScanResult,
+  ShiftSummary,
   TillShift,
   SaleReceipt,
   BootstrapData,
@@ -61,6 +65,9 @@ export function App() {
   const [completedReceipt, setCompletedReceipt] = useState<SaleReceipt | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+  const [isCloseShiftOpen, setIsCloseShiftOpen] = useState<boolean>(false);
+  /** X- or Z-report on screen. Set from the header, or straight after a close. */
+  const [shiftReport, setShiftReport] = useState<ShiftSummary | null>(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
   // Dark Mode
@@ -349,6 +356,24 @@ export function App() {
     }
   };
 
+  const handleViewShiftReport = async () => {
+    if (!currentShift) return;
+    try {
+      const summary: ShiftSummary = await apiFetch(`/shifts/${currentShift.id}/summary`);
+      setShiftReport(summary);
+    } catch (err) {
+      console.error('Failed to load shift summary:', err);
+    }
+  };
+
+  const handleShiftClosed = (summary: ShiftSummary) => {
+    setIsCloseShiftOpen(false);
+    setCurrentShift(null);
+    // Straight to the Z-report; dismissing it drops through to the float prompt
+    // for the next drawer.
+    setShiftReport(summary);
+  };
+
   const handleAuthSuccess = async (user: User, shift?: TillShift) => {
     setCurrentUser(user);
     if (shift) setCurrentShift(shift);
@@ -406,6 +431,8 @@ export function App() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         onLogout={handleLogout}
+        onViewShiftReport={handleViewShiftReport}
+        onCloseShift={() => setIsCloseShiftOpen(true)}
       />
 
       {/* Main Terminal View */}
@@ -466,6 +493,43 @@ export function App() {
 
       {/* Cashier PIN / Shift Overlay */}
       <PinModal isOpen={isPinModalOpen} onSuccess={handleAuthSuccess} />
+
+      {/* End-of-day drawer count */}
+      <CloseShiftModal
+        isOpen={isCloseShiftOpen}
+        shift={currentShift}
+        isOnline={isOnline}
+        pendingSyncCount={pendingSyncCount}
+        onClose={() => setIsCloseShiftOpen(false)}
+        onClosed={handleShiftClosed}
+      />
+
+      {/* Printable X/Z report */}
+      <ShiftSummaryReceipt
+        summary={shiftReport}
+        outlet={session?.outlet}
+        onClose={() => setShiftReport(null)}
+      />
+
+      {/* Signed in, but the drawer has no open shift — nothing can be rung up
+          until a float is entered. */}
+      <OpenShiftModal
+        // `session` gates this: until bootstrap resolves, currentShift is null
+        // simply because it has not loaded, and offline it never resolves at all
+        // — neither is a reason to block a cashier from selling.
+        isOpen={
+          Boolean(currentUser) && Boolean(session) && !currentShift && !isPinModalOpen && !shiftReport
+        }
+        user={currentUser}
+        tillId={session?.till.id}
+        outletName={session?.outlet.name}
+        tillName={session?.till.name}
+        onOpened={(shift) => {
+          setCurrentShift(shift);
+          void fetchSession();
+        }}
+        onSignOut={handleLogout}
+      />
 
       {/* Checkout Payment Modal */}
       <CheckoutModal

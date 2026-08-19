@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Lock, ArrowRight, DollarSign } from 'lucide-react';
+import { Lock, ArrowRight } from 'lucide-react';
 import { apiFetch, setAuthToken, ApiError } from '../../lib/api';
+import { OpenShiftModal } from '../pos/OpenShiftModal';
 import type { User, TillShift, BootstrapData } from '../../types/pos';
 
 /**
@@ -30,7 +31,6 @@ export function PinModal({ isOpen, onSuccess }: Props) {
   const [authedUser, setAuthedUser] = useState<User | null>(null);
   const [session, setSession] = useState<BootstrapData | null>(null);
   const [showFloat, setShowFloat] = useState(false);
-  const [openingFloat, setOpeningFloat] = useState('100.00');
 
   if (!isOpen) return null;
 
@@ -67,23 +67,6 @@ export function PinModal({ isOpen, onSuccess }: Props) {
       // after a network blip just makes the cashier retype a correct PIN.
       if (wrongPin) setPin('');
     } finally { setLoading(false); }
-  };
-
-  const submitFloat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authedUser) return;
-    const val = parseFloat(openingFloat);
-    if (isNaN(val) || val < 0) { setError('Enter valid float amount'); return; }
-    if (!session?.till.id) { setError('Terminal is not bound to a till yet. Reconnect and try again.'); return; }
-    setLoading(true);
-    try {
-      const shift: TillShift = await apiFetch('/shifts/open', {
-        method: 'POST',
-        body: JSON.stringify({ tillId: session.till.id, openingFloat: val }),
-      });
-      onSuccess(authedUser, shift);
-    } catch (e: any) { setError(e.message || 'Failed to open shift'); }
-    finally { setLoading(false); }
   };
 
   return (
@@ -123,29 +106,15 @@ export function PinModal({ isOpen, onSuccess }: Props) {
             <p className="mt-3 text-center text-xs text-muted">Demo PIN: 1234</p>
           </>
         ) : (
-          <form onSubmit={submitFloat}>
-            <div className="flex flex-col items-center mb-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-success/10 text-success flex items-center justify-center mb-3">
-                <DollarSign className="w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-bold">Open Till Shift</h2>
-              <p className="text-sm text-muted mt-1">Welcome, <span className="font-semibold text-foreground">{authedUser?.name}</span></p>
-              {session && (
-                <p className="text-xs text-muted mt-0.5">{session.outlet.name} — {session.till.name}</p>
-              )}
-            </div>
-            {error && <div className="mb-4 text-center text-sm text-danger bg-danger/10 py-2 rounded-lg border border-danger/20">{error}</div>}
-            <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">Opening Float ($)</label>
-            <div className="relative mb-6">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted font-mono">$</span>
-              <input type="number" step="0.01" min="0" value={openingFloat} onChange={e => setOpeningFloat(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-3xl font-bold font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-brand" autoFocus />
-            </div>
-            <button type="submit" disabled={loading}
-              className="w-full py-3.5 bg-success hover:brightness-110 text-success-foreground font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-              {loading ? 'Opening…' : 'Start Shift'}<ArrowRight className="w-5 h-5" />
-            </button>
-          </form>
+          <OpenShiftModal
+            isOpen
+            embedded
+            user={authedUser}
+            tillId={session?.till.id}
+            outletName={session?.outlet.name}
+            tillName={session?.till.name}
+            onOpened={(shift) => authedUser && onSuccess(authedUser, shift)}
+          />
         )}
       </div>
     </div>

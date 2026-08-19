@@ -127,11 +127,42 @@ export interface SaleReceipt {
 export interface TillShift {
   id: string;
   tillId: string;
+  till?: { id: string; name: string; outlet?: Outlet };
   openingFloat: number;
   openedAt: string;
   closedAt?: string;
   expectedCash?: number;
   actualCash?: number;
   discrepancy?: number;
+  notes?: string;
   user?: User;
+}
+
+/** One payment method's contribution to a shift, from GET /api/shifts/:id/summary. */
+export interface ShiftPaymentTotal {
+  paymentMethod: PaymentMethod;
+  amount: number;
+  count: number;
+}
+
+/**
+ * X/Z report figures. Mid-shift this is the X-report (period ends "now");
+ * after closing it is the Z-report, bounded by `closedAt`.
+ */
+export interface ShiftSummary {
+  shift: TillShift;
+  isClosed: boolean;
+  periodStart: string;
+  periodEnd: string;
+  salesCount: number;
+  grossSales: number;
+  taxTotal: number;
+  discountTotal: number;
+  byPaymentMethod: ShiftPaymentTotal[];
+  openingFloat: number;
+  cashSales: number;
+  expectedCash: number;
+  /** null until the drawer has actually been counted. */
+  actualCash: number | null;
+  discrepancy: number | null;
 }

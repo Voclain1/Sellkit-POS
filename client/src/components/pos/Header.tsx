@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, RefreshCw, User, LogOut, Sun, Moon, Store, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, User, LogOut, Sun, Moon, Store, AlertTriangle, FileText, Calculator } from 'lucide-react';
 import type { User as UserType, TillShift } from '../../types/pos';
 import type { SyncPhase } from '../../lib/offline/sync';
 
@@ -14,9 +14,13 @@ interface Props {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onLogout: () => void;
+  /** Mid-shift X-report: totals so far, drawer untouched. */
+  onViewShiftReport: () => void;
+  /** End-of-day drawer count and Z-report. */
+  onCloseShift: () => void;
 }
 
-export function Header({ user, shift, outletName, tillName, isOnline, pendingSyncCount, blockedSyncCount, syncPhase, isDarkMode, onToggleDarkMode, onLogout }: Props) {
+export function Header({ user, shift, outletName, tillName, isOnline, pendingSyncCount, blockedSyncCount, syncPhase, isDarkMode, onToggleDarkMode, onLogout, onViewShiftReport, onCloseShift }: Props) {
   return (
     <header className="h-14 bg-card border-b border-border px-4 flex items-center justify-between select-none shrink-0">
       {/* Brand */}
@@ -59,10 +63,19 @@ export function Header({ user, shift, outletName, tillName, isOnline, pendingSyn
       {/* User */}
       <div className="flex items-center gap-2">
         {shift && (
-          <div className="hidden md:flex flex-col text-right text-[11px] leading-tight">
-            <span className="text-muted">Float</span>
-            <span className="font-mono font-bold">${Number(shift.openingFloat).toFixed(2)}</span>
-          </div>
+          <>
+            <div className="hidden md:flex flex-col text-right text-[11px] leading-tight">
+              <span className="text-muted">Float</span>
+              <span className="font-mono font-bold">${Number(shift.openingFloat).toFixed(2)}</span>
+            </div>
+            <button onClick={onViewShiftReport} className="p-1.5 text-muted hover:text-brand bg-surface rounded-lg border border-border transition" title="X-report — shift totals so far">
+              <FileText className="w-4 h-4" />
+            </button>
+            <button onClick={onCloseShift} className="flex items-center gap-1.5 px-2 py-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg border border-amber-500/25 text-[11px] font-bold transition hover:bg-amber-500/20" title="Count the drawer and close this shift">
+              <Calculator className="w-4 h-4" />
+              <span className="hidden lg:inline">Close Shift</span>
+            </button>
+          </>
         )}
         <div className="flex items-center gap-1.5 bg-surface px-2 py-1 rounded-lg border border-border">
           <div className="w-6 h-6 rounded-full bg-brand/20 text-brand flex items-center justify-center"><User className="w-3.5 h-3.5" /></div>
