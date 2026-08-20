@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../prisma';
+import analyticsRoutes from './analytics';
 import authRoutes from './auth';
 import bootstrapRoutes from './bootstrap';
 import customerRoutes from './customers';
@@ -32,6 +33,7 @@ router.get('/health', async (_req: Request, res: Response) => {
 });
 
 // Sub-routes
+router.use('/analytics', analyticsRoutes);
 router.use('/auth', authRoutes);
 router.use('/bootstrap', bootstrapRoutes);
 router.use('/customers', customerRoutes);

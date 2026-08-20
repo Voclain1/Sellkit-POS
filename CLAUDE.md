@@ -12,7 +12,7 @@ below exist to protect that.
 
 ## Layout
 ```
-client/   Vite SPA. src/components (pos, checkout, auth, common),
+client/   Vite SPA. src/components (pos, checkout, auth, admin, common),
           src/lib/api.ts, src/lib/offline/{db,sync}.ts, src/lib/pwa.ts
 server/   Express API. src/routes -> src/controllers, src/prisma.ts,
           prisma/schema.prisma, prisma/migrations
@@ -88,6 +88,17 @@ rather than being invoked directly from the root.
   a validation failure returned as 500 would make the queue retry forever.
 - Checkout should be idempotent on replay: a POST that succeeds but loses its response
   will be resent by the offline queue.
+
+### Back office
+- `src/components/admin/` is ADMIN/MANAGER only. `src/lib/roles.ts` gates the UI;
+  `requireRole` on `/api/analytics` and the write routes under `/api/products`
+  is what actually enforces it — never rely on the client check alone.
+- It is **online-only and deliberately outside the offline queue.** A stock figure
+  replayed hours later from IndexedDB would overwrite whatever the till has since
+  sold. Re-stocking posts `{ delta }` rather than an absolute count for the same
+  reason: two people booking in deliveries at once must both land.
+- Entering the back office does not unmount the till — the POS pane is hidden, not
+  discarded, so a cart in progress survives the trip.
 
 ### PWA
 - `vite-plugin-pwa` in `client/vite.config.ts`, `registerType: 'prompt'`.

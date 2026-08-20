@@ -10,9 +10,11 @@ import { ShiftSummaryReceipt } from './components/reports/ShiftSummaryReceipt';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { ReceiptModal } from './components/checkout/ReceiptModal';
 import { PinModal } from './components/auth/PinModal';
+import { AdminLayout } from './components/admin/AdminLayout';
 import { SyncStatusToast } from './components/common/SyncStatusToast';
 import { PwaUpdatePrompt } from './components/common/PwaUpdatePrompt';
 import { apiFetch, getAuthToken, clearAuthToken } from './lib/api';
+import { canAccessAdmin } from './lib/roles';
 import { useOnlineStatus } from './lib/offline/sync';
 import {
   saveCatalog,
@@ -43,6 +45,12 @@ export function App() {
   const [currentShift, setCurrentShift] = useState<TillShift | null>(null);
   const [session, setSession] = useState<BootstrapData | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(true);
+  /**
+   * Which half of the app is on screen. The back office replaces the till rather
+   * than opening over it: an admin reviewing stock is not mid-sale, and leaving a
+   * live cart behind a dashboard is how baskets get lost.
+   */
+  const [view, setView] = useState<'pos' | 'admin'>('pos');
 
   // Catalog Data
   const [categories, setCategories] = useState<Category[]>([]);
@@ -377,6 +385,7 @@ export function App() {
   const handleAuthSuccess = async (user: User, shift?: TillShift) => {
     setCurrentUser(user);
     if (shift) setCurrentShift(shift);
+    setView('pos');
     setIsPinModalOpen(false);
     await Promise.all([fetchSession(), fetchCatalogData(), fetchCustomers()]);
   };
@@ -389,6 +398,7 @@ export function App() {
     setCart([]);
     setSelectedCustomer(null);
     setModifiers(emptyModifiers);
+    setView('pos');
     setIsPinModalOpen(true);
   };
 
@@ -416,6 +426,10 @@ export function App() {
     refreshQueue(); // an offline sale just joined the queue — show it immediately
   };
 
+  const isAdmin = canAccessAdmin(currentUser);
+  // A cashier signing in after an admin must never land inside the back office.
+  const isAdminView = view === 'admin' && isAdmin;
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background text-foreground">
       {/* Top Header */}
@@ -433,10 +447,28 @@ export function App() {
         onLogout={handleLogout}
         onViewShiftReport={handleViewShiftReport}
         onCloseShift={() => setIsCloseShiftOpen(true)}
+        onToggleAdmin={isAdmin ? () => setView(isAdminView ? 'pos' : 'admin') : undefined}
+        isAdminView={isAdminView}
       />
 
+      {/* Back Office: inventory re-stocking and analytics */}
+      {isAdminView && (
+        <AdminLayout
+          user={currentUser}
+          isOnline={isOnline}
+          onExit={() => setView('pos')}
+          onCatalogChanged={fetchCatalogData}
+        />
+      )}
+
       {/* Main Terminal View */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      {/* Kept mounted (not unmounted) behind the back office: a cart in progress
+          must survive a trip to inventory. */}
+      <div
+        className={
+          isAdminView ? 'hidden' : 'flex-1 flex flex-col lg:flex-row overflow-hidden'
+        }
+      >
         {/* Left Panel: Product Grid */}
         <ProductGrid
           categories={categories}
@@ -446,7 +478,11 @@ export function App() {
           onOpenScanner={() => setIsScannerOpen(true)}
           cartQuantities={cartQuantities}
           scannerEnabled={
-            !isCheckoutModalOpen && !isPinModalOpen && !isCustomerModalOpen && !completedReceipt
+            !isAdminView &&
+            !isCheckoutModalOpen &&
+            !isPinModalOpen &&
+            !isCustomerModalOpen &&
+            !completedReceipt
           }
         />
 
@@ -518,7 +554,14 @@ export function App() {
         // simply because it has not loaded, and offline it never resolves at all
         // — neither is a reason to block a cashier from selling.
         isOpen={
-          Boolean(currentUser) && Boolean(session) && !currentShift && !isPinModalOpen && !shiftReport
+          // Not in the back office: an admin reviewing stock has no drawer to open,
+          // and a blocking float prompt would make inventory unreachable.
+          !isAdminView &&
+          Boolean(currentUser) &&
+          Boolean(session) &&
+          !currentShift &&
+          !isPinModalOpen &&
+          !shiftReport
         }
         user={currentUser}
         tillId={session?.till.id}

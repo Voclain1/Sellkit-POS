@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, RefreshCw, User, LogOut, Sun, Moon, Store, AlertTriangle, FileText, Calculator } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, User, LogOut, Sun, Moon, Store, AlertTriangle, FileText, Calculator, LayoutDashboard, Monitor } from 'lucide-react';
 import type { User as UserType, TillShift } from '../../types/pos';
 import type { SyncPhase } from '../../lib/offline/sync';
 
@@ -18,9 +18,16 @@ interface Props {
   onViewShiftReport: () => void;
   /** End-of-day drawer count and Z-report. */
   onCloseShift: () => void;
+  /**
+   * Toggle the back office. Undefined for cashiers — the button is not rendered
+   * at all rather than rendered disabled, so the till stays uncluttered.
+   */
+  onToggleAdmin?: () => void;
+  /** True while the back office is on screen, so the button reads as a way back. */
+  isAdminView?: boolean;
 }
 
-export function Header({ user, shift, outletName, tillName, isOnline, pendingSyncCount, blockedSyncCount, syncPhase, isDarkMode, onToggleDarkMode, onLogout, onViewShiftReport, onCloseShift }: Props) {
+export function Header({ user, shift, outletName, tillName, isOnline, pendingSyncCount, blockedSyncCount, syncPhase, isDarkMode, onToggleDarkMode, onLogout, onViewShiftReport, onCloseShift, onToggleAdmin, isAdminView = false }: Props) {
   return (
     <header className="h-14 bg-card border-b border-border px-4 flex items-center justify-between select-none shrink-0">
       {/* Brand */}
@@ -62,7 +69,17 @@ export function Header({ user, shift, outletName, tillName, isOnline, pendingSyn
 
       {/* User */}
       <div className="flex items-center gap-2">
-        {shift && (
+        {onToggleAdmin && (
+          <button
+            onClick={onToggleAdmin}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[11px] font-bold transition ${isAdminView ? 'bg-brand text-brand-foreground border-brand' : 'bg-surface text-muted border-border hover:text-foreground'}`}
+            title={isAdminView ? 'Return to the till' : 'Inventory and analytics'}
+          >
+            {isAdminView ? <Monitor className="w-4 h-4" /> : <LayoutDashboard className="w-4 h-4" />}
+            <span className="hidden lg:inline">{isAdminView ? 'Till' : 'Back Office'}</span>
+          </button>
+        )}
+        {shift && !isAdminView && (
           <>
             <div className="hidden md:flex flex-col text-right text-[11px] leading-tight">
               <span className="text-muted">Float</span>

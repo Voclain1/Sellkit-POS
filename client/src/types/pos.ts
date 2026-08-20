@@ -166,3 +166,48 @@ export interface ShiftSummary {
   actualCash: number | null;
   discrepancy: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Back office (admin) — inventory & analytics
+// ---------------------------------------------------------------------------
+
+/** Windows offered by GET /api/analytics/dashboard. */
+export type AnalyticsRange = 'today' | '7d' | 'mtd';
+
+/** One day of trading in the analytics trend series. */
+export interface SalesTrendPoint {
+  /** Local YYYY-MM-DD, already bucketed by the server. */
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+export interface TopProductRow {
+  variantId: string;
+  sku: string;
+  productName: string;
+  variantName?: string | null;
+  categoryName?: string | null;
+  unitsSold: number;
+  revenue: number;
+}
+
+export interface AnalyticsDashboardData {
+  range: AnalyticsRange;
+  periodStart: string;
+  periodEnd: string;
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  lowStockThreshold: number;
+  /** Live shelf state, not windowed — a stale figure here means a missed re-order. */
+  lowStockCount: number;
+  trend: SalesTrendPoint[];
+  topProducts: TopProductRow[];
+}
+
+/** One variant flattened against its parent product, as the inventory table shows it. */
+export interface InventoryRow {
+  variant: ProductVariant;
+  product: Product;
+}

@@ -114,6 +114,13 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response): P
 
     res.status(201).json(product);
   } catch (error: any) {
+    // Duplicate SKU/barcode is an operator error: 4xx, so the client shows it
+    // rather than treating it as a transient server fault worth retrying.
+    if (error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(', ') : 'field';
+      res.status(409).json({ error: `Another variant already uses that ${target}` });
+      return;
+    }
     res.status(500).json({ error: 'Failed to create product', details: error.message });
   }
 };
@@ -233,5 +240,121 @@ export const getLowStockProducts = async (req: AuthenticatedRequest, res: Respon
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch low stock alerts', details: error.message });
+  }
+};
+
+// Category list for the back-office product forms (/api/products/categories)
+export const getCategories = async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
+    res.json(categories);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
+  }
+};
+
+/**
+ * Re-stock a single variant (PATCH /api/products/variants/:variantId/stock).
+ *
+ * Accepts either `stockQuantity` (an absolute count, from a stock take) or
+ * `delta` (units received). `delta` is applied inside a transaction with the
+ * read, so two people booking in deliveries at once cannot lose one of them.
+ */
+export const updateVariantStock = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const variantId = req.params.variantId as string;
+    const { stockQuantity, delta } = req.body;
+
+    const hasAbsolute = stockQuantity !== undefined && stockQuantity !== null;
+    const hasDelta = delta !== undefined && delta !== null;
+
+    if (hasAbsolute === hasDelta) {
+      res.status(400).json({ error: 'Provide exactly one of stockQuantity (absolute) or delta (adjustment)' });
+      return;
+    }
+
+    const raw = Number(hasAbsolute ? stockQuantity : delta);
+    if (!Number.isInteger(raw)) {
+      res.status(400).json({ error: 'Stock values must be whole numbers' });
+      return;
+    }
+    if (hasAbsolute && raw < 0) {
+      res.status(400).json({ error: 'stockQuantity cannot be negative' });
+      return;
+    }
+
+    const existing = await prisma.productVariant.findUnique({ where: { id: variantId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Product variant not found' });
+      return;
+    }
+
+    if (hasDelta && existing.stockQuantity + raw < 0) {
+      res.status(400).json({
+        error: `Adjustment of ${raw} would take ${existing.sku} below zero (currently ${existing.stockQuantity})`,
+      });
+      return;
+    }
+
+    const variant = await prisma.productVariant.update({
+      where: { id: variantId },
+      data: hasAbsolute ? { stockQuantity: raw } : { stockQuantity: { increment: raw } },
+      include: { product: { include: { category: true } } },
+    });
+
+    res.json(variant);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update stock', details: error.message });
+  }
+};
+
+/**
+ * Update one variant's pricing and identity (PUT /api/products/variants/:variantId).
+ * Stock is deliberately not settable here — re-stocking goes through
+ * `updateVariantStock` so an edit to a price can never silently reset the shelf.
+ */
+export const updateVariant = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const variantId = req.params.variantId as string;
+    const { name, sku, barcode, price, cost } = req.body;
+
+    const existing = await prisma.productVariant.findUnique({ where: { id: variantId } });
+    if (!existing) {
+      res.status(404).json({ error: 'Product variant not found' });
+      return;
+    }
+
+    if (price !== undefined && (isNaN(Number(price)) || Number(price) < 0)) {
+      res.status(400).json({ error: 'Price must be a non-negative number' });
+      return;
+    }
+    if (cost !== undefined && (isNaN(Number(cost)) || Number(cost) < 0)) {
+      res.status(400).json({ error: 'Cost must be a non-negative number' });
+      return;
+    }
+
+    const data: Prisma.ProductVariantUpdateInput = {};
+    if (name !== undefined) data.name = name || null;
+    if (sku) data.sku = String(sku).trim();
+    if (barcode !== undefined) data.barcode = barcode ? String(barcode).trim() : null;
+    if (price !== undefined) data.price = Number(price);
+    if (cost !== undefined) data.cost = Number(cost);
+
+    const variant = await prisma.productVariant.update({
+      where: { id: variantId },
+      data,
+      include: { product: { include: { category: true } } },
+    });
+
+    res.json(variant);
+  } catch (error: any) {
+    // A duplicate SKU or barcode is the operator's mistake, not a server fault —
+    // 4xx keeps the client's offline queue from retrying it forever.
+    if (error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(', ') : 'field';
+      res.status(409).json({ error: `Another variant already uses that ${target}` });
+      return;
+    }
+    res.status(500).json({ error: 'Failed to update variant', details: error.message });
   }
 };
