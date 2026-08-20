@@ -10,6 +10,7 @@ import { ShiftSummaryReceipt } from './components/reports/ShiftSummaryReceipt';
 import { CheckoutModal } from './components/checkout/CheckoutModal';
 import { ReceiptModal } from './components/checkout/ReceiptModal';
 import { PinModal } from './components/auth/PinModal';
+import type { LoginLanding } from './components/auth/PinModal';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { SyncStatusToast } from './components/common/SyncStatusToast';
 import { PwaUpdatePrompt } from './components/common/PwaUpdatePrompt';
@@ -382,10 +383,16 @@ export function App() {
     setShiftReport(summary);
   };
 
-  const handleAuthSuccess = async (user: User, shift?: TillShift) => {
+  const handleAuthSuccess = async (
+    user: User,
+    shift?: TillShift,
+    landing: LoginLanding = 'pos'
+  ) => {
     setCurrentUser(user);
     if (shift) setCurrentShift(shift);
-    setView('pos');
+    // canAccessAdmin re-checked here, not just in the modal: `landing` arrives
+    // from the login UI, and the view must never open for a non-admin.
+    setView(landing === 'admin' && canAccessAdmin(user) ? 'admin' : 'pos');
     setIsPinModalOpen(false);
     await Promise.all([fetchSession(), fetchCatalogData(), fetchCustomers()]);
   };

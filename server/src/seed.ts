@@ -101,20 +101,25 @@ async function seed() {
 
   await retireLegacyDuplicates();
 
-  // 1. Admin user
+  // 1. Admin user, with a PIN (4321) so the back office is reachable from the
+  // terminal. The keypad is the only sign-in path in the client, so an admin
+  // without a PIN cannot log in at all.
   const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPin = await hashPin('4321');
   const adminUser = await prisma.user.upsert({
     where: { id: DEFAULT_IDS.adminUser },
-    update: { email: 'admin@sellkitpos.com', name: 'System Admin', role: 'ADMIN' },
+    // `update` repairs an existing admin row rather than needing a fresh database.
+    update: { email: 'admin@sellkitpos.com', name: 'System Admin', role: 'ADMIN', pin: adminPin },
     create: {
       id: DEFAULT_IDS.adminUser,
       email: 'admin@sellkitpos.com',
       name: 'System Admin',
       password: adminPassword,
+      pin: adminPin,
       role: 'ADMIN',
     },
   });
-  console.log('✅ Admin User:', adminUser.email);
+  console.log('✅ Admin User:', adminUser.email, '(PIN: 4321)');
 
   // 2. Cashier with a 4-digit PIN (1234), stored in the v2 lookup+bcrypt format.
   const cashierPassword = await bcrypt.hash('cashier123', 10);

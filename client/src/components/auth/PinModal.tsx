@@ -1,8 +1,41 @@
 import { useState } from 'react';
-import { Lock, ArrowRight } from 'lucide-react';
-import { apiFetch, setAuthToken, ApiError } from '../../lib/api';
+import { Lock, ArrowRight, Store, LayoutDashboard } from 'lucide-react';
+import { apiFetch, setAuthToken, clearAuthToken, ApiError } from '../../lib/api';
+import { canAccessAdmin } from '../../lib/roles';
 import { OpenShiftModal } from '../pos/OpenShiftModal';
 import type { User, TillShift, BootstrapData } from '../../types/pos';
+
+/** Which door the operator came in through. */
+export type LoginMode = 'cashier' | 'admin';
+
+/** Where App should land this session once the modal closes. */
+export type LoginLanding = 'pos' | 'admin';
+
+const MODES: {
+  mode: LoginMode;
+  label: string;
+  icon: typeof Store;
+  heading: string;
+  blurb: string;
+  demoPin: string;
+}[] = [
+  {
+    mode: 'cashier',
+    label: 'Cashier',
+    icon: Store,
+    heading: 'Cashier Quick-Login',
+    blurb: 'Enter your 4-digit PIN to unlock',
+    demoPin: '1234',
+  },
+  {
+    mode: 'admin',
+    label: 'Admin',
+    icon: LayoutDashboard,
+    heading: 'Back Office Login',
+    blurb: 'Enter your 4-digit admin PIN',
+    demoPin: '4321',
+  },
+];
 
 /**
  * A dead API and a wrong PIN are different problems. Reporting both as
@@ -21,10 +54,11 @@ function describeLoginError(e: unknown, afterAuth: boolean): string {
 
 interface Props {
   isOpen: boolean;
-  onSuccess: (user: User, shift?: TillShift) => void;
+  onSuccess: (user: User, shift?: TillShift, landing?: LoginLanding) => void;
 }
 
 export function PinModal({ isOpen, onSuccess }: Props) {
+  const [mode, setMode] = useState<LoginMode>('cashier');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,9 +68,19 @@ export function PinModal({ isOpen, onSuccess }: Props) {
 
   if (!isOpen) return null;
 
+  const active = MODES.find((m) => m.mode === mode) ?? MODES[0];
+
   const press = (n: string) => { if (pin.length < 4) { setPin(p => p + n); setError(''); } };
   const back = () => { setPin(p => p.slice(0, -1)); setError(''); };
   const clear = () => { setPin(''); setError(''); };
+
+  const switchMode = (next: LoginMode) => {
+    if (next === mode || loading) return;
+    // A PIN typed for the other door is never the right one here.
+    setMode(next);
+    setPin('');
+    setError('');
+  };
 
   const submitPin = async () => {
     if (pin.length !== 4) { setError('Enter 4-digit PIN'); return; }
@@ -50,15 +94,30 @@ export function PinModal({ isOpen, onSuccess }: Props) {
       const data = await apiFetch('/auth/pin-login', { method: 'POST', body: JSON.stringify({ pin }) });
       setAuthToken(data.token);
       const user: User = data.user;
-      setAuthedUser(user);
       authed = true;
+
+      // The keypad resolves a user from the PIN alone, so the mode buttons are a
+      // statement of intent, not a filter. Enforce it here: an admin PIN may run
+      // the till, but a cashier PIN must not open the back office.
+      if (mode === 'admin' && !canAccessAdmin(user)) {
+        clearAuthToken();
+        setPin('');
+        setError(`That PIN belongs to ${user.name} (${user.role}). Use an admin PIN, or sign in as Cashier.`);
+        return;
+      }
+
+      setAuthedUser(user);
+
+      // Straight to the back office: an admin reviewing stock has no drawer to
+      // count, so the float prompt would only be in the way.
+      if (mode === 'admin') { onSuccess(user, undefined, 'admin'); return; }
 
       // Resolve this terminal's outlet/till, and reuse the shift if one is already
       // open on the till (a hand-over mid-shift must not open a second one).
       const bootstrap: BootstrapData = await apiFetch('/bootstrap');
       setSession(bootstrap);
 
-      if (bootstrap.shift) { onSuccess(user, bootstrap.shift); return; }
+      if (bootstrap.shift) { onSuccess(user, bootstrap.shift, 'pos'); return; }
       setShowFloat(true);
     } catch (e: unknown) {
       const wrongPin = !authed && e instanceof ApiError && e.status === 401;
@@ -74,12 +133,36 @@ export function PinModal({ isOpen, onSuccess }: Props) {
       <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 text-card-foreground">
         {!showFloat ? (
           <>
+            {/* Which door: the till, or the back office. */}
+            <div className="flex bg-surface border border-border rounded-xl p-1 mb-5">
+              {MODES.map((m) => {
+                const Icon = m.icon;
+                const isActive = mode === m.mode;
+                return (
+                  <button
+                    key={m.mode}
+                    type="button"
+                    onClick={() => switchMode(m.mode)}
+                    disabled={loading}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
+                      isActive
+                        ? 'bg-brand text-brand-foreground shadow-sm'
+                        : 'text-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    Login as {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex flex-col items-center mb-6 text-center">
               <div className="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-3">
                 <Lock className="w-7 h-7" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight">Cashier Quick-Login</h2>
-              <p className="text-sm text-muted mt-1">Enter your 4-digit PIN to unlock</p>
+              <h2 className="text-2xl font-bold tracking-tight">{active.heading}</h2>
+              <p className="text-sm text-muted mt-1">{active.blurb}</p>
             </div>
             <div className="flex justify-center gap-4 mb-6">
               {[0, 1, 2, 3].map(i => (
@@ -103,7 +186,7 @@ export function PinModal({ isOpen, onSuccess }: Props) {
               className="w-full py-3.5 bg-brand hover:brightness-110 disabled:opacity-40 text-brand-foreground font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
               {loading ? 'Authenticating…' : 'Unlock Terminal'}<ArrowRight className="w-5 h-5" />
             </button>
-            <p className="mt-3 text-center text-xs text-muted">Demo PIN: 1234</p>
+            <p className="mt-3 text-center text-xs text-muted">Demo PIN: {active.demoPin}</p>
           </>
         ) : (
           <OpenShiftModal
@@ -113,7 +196,7 @@ export function PinModal({ isOpen, onSuccess }: Props) {
             tillId={session?.till.id}
             outletName={session?.outlet.name}
             tillName={session?.till.name}
-            onOpened={(shift) => authedUser && onSuccess(authedUser, shift)}
+            onOpened={(shift) => authedUser && onSuccess(authedUser, shift, 'pos')}
           />
         )}
       </div>
