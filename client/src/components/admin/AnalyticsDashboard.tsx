@@ -30,20 +30,20 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, hint, tone = 'brand' }: StatCardProps) {
   const tones = {
-    brand: 'bg-brand/10 text-brand border-brand/20',
-    success: 'bg-success/10 text-success border-success/20',
-    accent: 'bg-accent/10 text-accent border-accent/20',
-    danger: 'bg-danger/10 text-danger border-danger/20',
+    brand: 'bg-brand/10 text-brand ring-brand/25',
+    success: 'bg-success/10 text-success ring-success/25',
+    accent: 'bg-accent/10 text-accent ring-accent/25',
+    danger: 'bg-danger/10 text-danger ring-danger/25',
   } as const;
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-4 flex items-start gap-3 shadow-sm h-full">
-      <div className={`w-10 h-10 shrink-0 rounded-xl border flex items-center justify-center ${tones[tone]}`}>
+    <div className="panel p-4 flex items-start gap-3 h-full">
+      <div className={`w-10 h-10 shrink-0 rounded-xl ring-1 ring-inset flex items-center justify-center ${tones[tone]}`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <span className="text-[10px] uppercase font-bold tracking-widest text-muted block">{label}</span>
-        <span className="text-xl font-extrabold tracking-tight block truncate">{value}</span>
+        <span className="micro-label block">{label}</span>
+        <span className="num-display text-2xl block truncate">{value}</span>
         {hint && <span className="text-[11px] text-muted block truncate">{hint}</span>}
       </div>
     </div>
@@ -98,7 +98,7 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
       {/* Range filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Analytics</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Analytics</h2>
           <p className="text-xs text-muted">
             {data
               ? `${new Date(data.periodStart).toLocaleString()} — now`
@@ -111,9 +111,9 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
               <button
                 key={r.value}
                 onClick={() => setRange(r.value)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition duration-150 active:scale-[0.97] ${
                   range === r.value
-                    ? 'bg-brand text-brand-foreground shadow-sm'
+                    ? 'bg-brand text-brand-foreground shadow-[var(--shadow-press)]'
                     : 'text-muted hover:text-foreground'
                 }`}
               >
@@ -124,7 +124,7 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
           <button
             onClick={() => void load()}
             disabled={isLoading}
-            className="p-2 bg-surface border border-border rounded-xl text-muted hover:text-foreground transition disabled:opacity-50"
+            className="btn-quiet p-2"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -186,9 +186,9 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
           </div>
 
           {/* Sales trend */}
-          <section className="bg-card border border-border rounded-2xl p-4">
+          <section className="panel p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-extrabold text-sm">Sales Trend</h3>
+              <h3 className="font-semibold text-sm tracking-tight">Sales Trend</h3>
               <span className="text-[11px] text-muted font-semibold">
                 Peak day {money(peakRevenue)}
               </span>
@@ -227,10 +227,10 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
           </section>
 
           {/* Top sellers */}
-          <section className="bg-card border border-border rounded-2xl overflow-hidden">
+          <section className="panel overflow-hidden">
             <div className="flex items-center gap-2 p-4 border-b border-border">
               <Trophy className="w-4 h-4 text-brand" />
-              <h3 className="font-extrabold text-sm">Top Selling Products</h3>
+              <h3 className="font-semibold text-sm tracking-tight">Top Selling Products</h3>
             </div>
 
             {data.topProducts.length === 0 ? (
@@ -256,7 +256,7 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
                         data.totalRevenue > 0 ? (row.revenue / data.totalRevenue) * 100 : 0;
                       return (
                         <tr key={row.variantId} className="hover:bg-surface/60 transition">
-                          <td className="px-4 py-2.5 font-mono text-muted">{idx + 1}</td>
+                          <td className="px-4 py-2.5 num text-muted">{idx + 1}</td>
                           <td className="px-4 py-2.5">
                             <span className="font-bold block">{row.productName}</span>
                             <span className="text-[10px] text-muted">
@@ -264,11 +264,11 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
                                 'Standard'}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-muted">{row.sku}</td>
-                          <td className="px-4 py-2.5 text-right font-mono font-bold">
+                          <td className="px-4 py-2.5 num text-muted">{row.sku}</td>
+                          <td className="px-4 py-2.5 text-right num font-semibold">
                             {count(row.unitsSold)}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-mono font-bold text-success">
+                          <td className="px-4 py-2.5 text-right num font-semibold text-success">
                             {money(row.revenue)}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -279,7 +279,7 @@ export function AnalyticsDashboard({ lowStockThreshold = 10, onReviewLowStock }:
                                   style={{ width: `${Math.min(share, 100)}%` }}
                                 />
                               </div>
-                              <span className="font-mono text-muted">{share.toFixed(1)}%</span>
+                              <span className="num text-muted">{share.toFixed(1)}%</span>
                             </div>
                           </td>
                         </tr>

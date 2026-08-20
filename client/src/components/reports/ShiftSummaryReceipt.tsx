@@ -32,14 +32,14 @@ export function ShiftSummaryReceipt({ summary, outlet, onClose }: Props) {
   const netSales = summary.grossSales - summary.taxTotal;
 
   return (
-    <div className="receipt-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className="receipt-panel w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-card-foreground">
+    <div className="receipt-overlay modal-overlay">
+      <div className="receipt-panel panel w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
         <div className="no-print p-4 bg-brand/10 border-b border-brand/20 text-center flex flex-col items-center">
           <ClipboardCheck className="w-9 h-9 text-brand mb-1" />
-          <h3 className="font-extrabold text-base text-brand">
+          <h3 className="font-semibold text-base text-brand tracking-tight">
             {summary.isClosed ? 'Shift Closed' : 'Shift Summary'}
           </h3>
-          <span className="text-xs text-muted">
+          <span className="micro-label mt-0.5">
             {tillName} — {summary.shift.user?.name ?? 'Cashier'}
           </span>
         </div>
@@ -181,13 +181,13 @@ export function ShiftSummaryReceipt({ summary, outlet, onClose }: Props) {
         <div className="no-print p-3 border-t border-border flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl bg-surface border border-border text-muted font-bold text-xs hover:text-foreground transition"
+            className="btn-quiet flex-1 py-3 text-xs"
           >
             Done
           </button>
           <button
             onClick={() => window.print()}
-            className="flex-[1.4] py-3 rounded-xl bg-brand text-brand-foreground font-black text-xs shadow-lg shadow-brand/20 transition hover:brightness-110 flex items-center justify-center gap-1.5"
+            className="btn-primary flex-[1.4] py-3 text-xs"
           >
             <Printer className="w-4 h-4" />
             Print Report

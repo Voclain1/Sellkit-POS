@@ -254,16 +254,16 @@ export function BarcodeScannerModal({ isOpen, onClose, onDetected }: Props) {
   const isError = status.kind === 'error';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 no-print">
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+    <div className="modal-overlay no-print">
+      <div className="w-full max-w-md panel overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand/10 text-brand flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-brand/10 text-brand ring-1 ring-inset ring-brand/20 flex items-center justify-center">
               <Camera className="w-3.5 h-3.5" />
             </div>
-            <div>
-              <h2 className="font-bold text-xs">Scan Barcode</h2>
-              <span className="text-[10px] text-muted">Hold the code inside the frame</span>
+            <div className="leading-tight">
+              <h2 className="font-semibold text-xs">Scan Barcode</h2>
+              <span className="micro-label">Hold the code inside the frame</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -272,11 +272,7 @@ export function BarcodeScannerModal({ isOpen, onClose, onDetected }: Props) {
                 onClick={toggleTorch}
                 title={torchOn ? 'Turn torch off' : 'Turn torch on'}
                 aria-label={torchOn ? 'Turn torch off' : 'Turn torch on'}
-                className={`p-1.5 rounded-lg border transition ${
-                  torchOn
-                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-500'
-                    : 'bg-surface border-border text-muted hover:text-foreground'
-                }`}
+                className={`${torchOn ? 'btn-warning' : 'btn-quiet'} p-1.5`}
               >
                 {torchOn ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
               </button>
@@ -284,7 +280,7 @@ export function BarcodeScannerModal({ isOpen, onClose, onDetected }: Props) {
             <button
               onClick={onClose}
               aria-label="Close scanner"
-              className="p-1.5 rounded-lg bg-surface border border-border text-muted hover:text-danger transition"
+              className="btn-quiet p-1.5 hover:text-danger"
             >
               <X className="w-4 h-4" />
             </button>
@@ -335,13 +331,13 @@ export function BarcodeScannerModal({ isOpen, onClose, onDetected }: Props) {
           {status.kind === 'hit' && (
             <>
               <Check className="w-4 h-4 text-success shrink-0" />
-              <span className="text-xs font-bold text-success truncate">{status.message}</span>
+              <span className="text-xs font-semibold text-success truncate">{status.message}</span>
             </>
           )}
           {status.kind === 'miss' && (
             <>
               <AlertTriangle className="w-4 h-4 text-danger shrink-0" />
-              <span className="text-xs font-bold text-danger truncate">{status.message}</span>
+              <span className="text-xs font-semibold text-danger truncate">{status.message}</span>
             </>
           )}
           {(status.kind === 'scanning' || status.kind === 'starting') && (

@@ -68,10 +68,10 @@ export function OpenShiftModal({
   const body = (
     <form onSubmit={submit}>
       <div className="flex flex-col items-center mb-6 text-center">
-        <div className="w-14 h-14 rounded-full bg-success/10 text-success flex items-center justify-center mb-3">
-          <DollarSign className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-success/10 text-success ring-1 ring-inset ring-success/25 flex items-center justify-center mb-3">
+          <DollarSign className="w-6 h-6" />
         </div>
-        <h2 className="text-2xl font-bold">Open Till Shift</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Open Till Shift</h2>
         <p className="text-sm text-muted mt-1">
           Welcome, <span className="font-semibold text-foreground">{user?.name}</span>
         </p>
@@ -83,16 +83,14 @@ export function OpenShiftModal({
       </div>
 
       {error && (
-        <div className="mb-4 text-center text-sm text-danger bg-danger/10 py-2 rounded-lg border border-danger/20">
+        <div className="mb-4 text-center text-sm text-danger bg-danger/10 py-2 rounded-lg ring-1 ring-inset ring-danger/25">
           {error}
         </div>
       )}
 
-      <label className="block text-xs font-bold text-muted uppercase tracking-wider mb-2">
-        Opening Float ($)
-      </label>
+      <label className="micro-label block mb-2">Opening Float ($)</label>
       <div className="relative mb-3">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted font-mono">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted num">
           $
         </span>
         <input
@@ -101,7 +99,7 @@ export function OpenShiftModal({
           min="0"
           value={openingFloat}
           onChange={(e) => setOpeningFloat(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-3xl font-bold font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+          className="field num pl-10 pr-4 py-3 text-3xl font-semibold"
           autoFocus
         />
       </div>
@@ -112,7 +110,7 @@ export function OpenShiftModal({
             key={amount}
             type="button"
             onClick={() => setOpeningFloat(amount.toFixed(2))}
-            className="flex-1 py-1.5 bg-surface border border-border rounded-lg text-[11px] font-bold font-mono text-muted hover:text-foreground hover:border-brand/60 transition"
+            className="btn-quiet num flex-1 py-1.5 rounded-lg text-[11px]"
           >
             ${amount}
           </button>
@@ -122,7 +120,7 @@ export function OpenShiftModal({
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-3.5 bg-success hover:brightness-110 disabled:opacity-40 text-success-foreground font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+        className="btn-success w-full py-3.5 text-sm"
       >
         {loading ? 'Opening…' : 'Start Shift'}
         <ArrowRight className="w-5 h-5" />
@@ -144,8 +142,8 @@ export function OpenShiftModal({
   if (embedded) return body;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 no-print">
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 text-card-foreground">
+    <div className="modal-overlay no-print">
+      <div className="panel w-full max-w-md p-6">
         {body}
       </div>
     </div>

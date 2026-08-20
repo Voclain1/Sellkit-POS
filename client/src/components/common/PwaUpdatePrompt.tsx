@@ -33,13 +33,13 @@ export function PwaUpdatePrompt({ hasUnfinishedWork }: Props) {
     <div
       role="status"
       aria-live="polite"
-      className="no-print fixed bottom-4 right-4 z-[60] w-[19rem] max-w-[calc(100vw-2rem)] rounded-xl border border-brand/40 bg-card text-foreground shadow-2xl px-4 py-3 text-xs"
+      className="no-print panel fixed bottom-4 right-4 z-[60] w-[19rem] max-w-[calc(100vw-2rem)] border-brand/30 px-4 py-3 text-xs"
     >
       {updateReady ? (
         <div className="flex items-start gap-2.5">
           <DownloadCloud className="w-4 h-4 shrink-0 mt-0.5 text-brand" />
           <div className="flex-1 min-w-0 space-y-1">
-            <h4 className="font-extrabold leading-tight">Update available</h4>
+            <h4 className="font-semibold leading-tight">Update available</h4>
             <p className="text-[11px] text-muted leading-snug">
               {hasUnfinishedWork
                 ? 'Finish or clear the current sale first — updating reloads the terminal.'
@@ -49,7 +49,7 @@ export function PwaUpdatePrompt({ hasUnfinishedWork }: Props) {
               type="button"
               onClick={handleUpdate}
               disabled={isUpdating || hasUnfinishedWork}
-              className="mt-1.5 px-3 py-1.5 rounded-lg bg-brand text-brand-foreground font-bold text-[11px] hover:brightness-110 disabled:opacity-40 transition"
+              className="btn-primary mt-1.5 px-3 py-1.5 rounded-lg text-[11px]"
             >
               {isUpdating ? 'Reloading…' : 'Reload & update'}
             </button>
@@ -59,7 +59,7 @@ export function PwaUpdatePrompt({ hasUnfinishedWork }: Props) {
         <div className="flex items-start gap-2.5">
           <HardDriveDownload className="w-4 h-4 shrink-0 mt-0.5 text-success" />
           <div className="flex-1 min-w-0 space-y-1">
-            <h4 className="font-extrabold leading-tight">Ready to work offline</h4>
+            <h4 className="font-semibold leading-tight">Ready to work offline</h4>
             <p className="text-[11px] text-muted leading-snug">
               This terminal is cached and will keep selling without a connection.
             </p>

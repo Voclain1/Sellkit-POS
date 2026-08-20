@@ -78,16 +78,16 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-5 shadow-2xl text-card-foreground space-y-4">
+    <div className="modal-overlay">
+      <div className="w-full max-w-sm panel p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-extrabold text-base truncate">Re-stock</h3>
+            <h3 className="font-semibold text-base tracking-tight truncate">Re-stock</h3>
             <p className="text-xs text-muted truncate">
               {row.product.name}
               {row.variant.name ? ` · ${row.variant.name}` : ''}
             </p>
-            <p className="text-[11px] font-mono text-muted">{row.variant.sku}</p>
+            <p className="text-[11px] num text-muted">{row.variant.sku}</p>
           </div>
           <button onClick={onClose} className="text-muted hover:text-foreground shrink-0">
             <X className="w-5 h-5" />
@@ -95,10 +95,10 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-3 flex items-center justify-between">
-          <span className="text-[11px] uppercase font-bold tracking-widest text-muted">
+          <span className="micro-label">
             On shelf
           </span>
-          <span className="font-mono font-extrabold text-lg">
+          <span className="num-display text-lg">
             {count(row.variant.stockQuantity)}
           </span>
         </div>
@@ -113,9 +113,9 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
             <button
               key={m.value}
               onClick={() => setMode(m.value)}
-              className={`flex-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition ${
+              className={`flex-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition duration-150 active:scale-[0.97] ${
                 mode === m.value
-                  ? 'bg-brand text-brand-foreground shadow-sm'
+                  ? 'bg-brand text-brand-foreground shadow-[var(--shadow-press)]'
                   : 'text-muted hover:text-foreground'
               }`}
             >
@@ -125,7 +125,7 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
         </div>
 
         <div>
-          <label className="text-[10px] uppercase font-bold tracking-widest text-muted block mb-1">
+          <label className="micro-label block mb-1">
             {mode === 'delta' ? 'Units received (negative to write off)' : 'Counted quantity'}
           </label>
           <input
@@ -138,13 +138,13 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
             }}
             onKeyDown={(e) => e.key === 'Enter' && void submit()}
             placeholder={mode === 'delta' ? 'e.g. 24' : `${row.variant.stockQuantity}`}
-            className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm font-mono font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+            className="field num px-3 py-2 text-sm font-semibold"
             autoFocus
           />
           {isValid && (
             <p className="text-[11px] text-muted mt-1.5">
               New shelf count:{' '}
-              <span className={`font-mono font-bold ${projected < 0 ? 'text-danger' : 'text-success'}`}>
+              <span className={`num font-semibold ${projected < 0 ? 'text-danger' : 'text-success'}`}>
                 {count(projected)}
               </span>
             </p>
@@ -161,14 +161,14 @@ function RestockModal({ row, onClose, onSaved }: RestockModalProps) {
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 bg-surface border border-border rounded-xl text-xs font-bold text-muted hover:text-foreground transition"
+            className="btn-quiet flex-1 py-2.5 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={() => void submit()}
             disabled={!isValid || isSaving || projected < 0}
-            className="flex-1 py-2.5 bg-brand text-brand-foreground rounded-xl text-xs font-extrabold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="btn-primary flex-1 py-2.5 text-xs"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackagePlus className="w-4 h-4" />}
             Save
@@ -284,15 +284,14 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
     }
   };
 
-  const field =
-    'w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-brand';
-  const label = 'text-[10px] uppercase font-bold tracking-widest text-muted block mb-1';
+  const field = 'field px-3 py-2 text-sm font-medium';
+  const label = 'micro-label block mb-1';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-border rounded-2xl p-5 shadow-2xl text-card-foreground space-y-4">
+    <div className="modal-overlay">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto panel p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-extrabold text-base">{isEdit ? 'Edit Product' : 'Add Product'}</h3>
+          <h3 className="font-semibold text-base tracking-tight">{isEdit ? 'Edit Product' : 'Add Product'}</h3>
           <button onClick={onClose} className="text-muted hover:text-foreground">
             <X className="w-5 h-5" />
           </button>
@@ -352,7 +351,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
               value={sku}
               onChange={(e) => setSku(e.target.value)}
               placeholder={isEdit ? '' : 'Auto-generated if blank'}
-              className={`${field} font-mono`}
+              className={`${field} num`}
             />
           </div>
 
@@ -362,7 +361,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="Optional"
-              className={`${field} font-mono`}
+              className={`${field} num`}
             />
           </div>
 
@@ -375,7 +374,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
               value={cost}
               onChange={(e) => setCost(e.target.value)}
               placeholder="0.00"
-              className={`${field} font-mono`}
+              className={`${field} num`}
             />
           </div>
 
@@ -388,7 +387,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
-              className={`${field} font-mono`}
+              className={`${field} num`}
             />
           </div>
 
@@ -401,7 +400,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
                 min="0"
                 value={stockQuantity}
                 onChange={(e) => setStockQuantity(e.target.value)}
-                className={`${field} font-mono`}
+                className={`${field} num`}
               />
             </div>
           )}
@@ -410,7 +409,7 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
         {margin !== null && (
           <p className="text-[11px] text-muted">
             Margin:{' '}
-            <span className={`font-mono font-bold ${margin < 0 ? 'text-danger' : 'text-success'}`}>
+            <span className={`num font-semibold ${margin < 0 ? 'text-danger' : 'text-success'}`}>
               {margin.toFixed(1)}%
             </span>{' '}
             ({money(priceNum - costNum)} per unit)
@@ -434,14 +433,14 @@ function ProductFormModal({ row, categories, onClose, onSaved }: ProductFormModa
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 bg-surface border border-border rounded-xl text-xs font-bold text-muted hover:text-foreground transition"
+            className="btn-quiet flex-1 py-2.5 text-xs"
           >
             Cancel
           </button>
           <button
             onClick={() => void submit()}
             disabled={!canSave || isSaving}
-            className="flex-1 py-2.5 bg-brand text-brand-foreground rounded-xl text-xs font-extrabold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="btn-primary flex-1 py-2.5 text-xs"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {isEdit ? 'Save changes' : 'Create product'}
@@ -545,13 +544,13 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
       {/* Toolbar */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Inventory</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Inventory</h2>
           <p className="text-xs text-muted">
             {count(rows.length)} variants · {money(stockOnHandValue)} at cost on hand
             {lowStockCount > 0 && (
               <>
                 {' · '}
-                <span className="text-danger font-bold">{count(lowStockCount)} low</span>
+                <span className="text-danger font-semibold">{count(lowStockCount)} low</span>
               </>
             )}
           </p>
@@ -560,7 +559,7 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
           <button
             onClick={() => void load()}
             disabled={isLoading}
-            className="p-2 bg-surface border border-border rounded-xl text-muted hover:text-foreground transition disabled:opacity-50"
+            className="btn-quiet p-2"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -570,7 +569,7 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
               setFormRow(null);
               setIsFormOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-extrabold transition hover:opacity-90"
+            className="btn-primary px-3 py-2 text-xs"
           >
             <Plus className="w-4 h-4" />
             Add Product
@@ -586,13 +585,13 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, SKU, or barcode…"
-            className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+            className="field pl-9 pr-4 py-2 text-sm font-medium"
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 bg-surface border border-border rounded-xl text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+          className="field px-3 py-2 text-xs font-semibold"
         >
           <option value="all">All categories</option>
           {categories.map((c) => (
@@ -621,7 +620,7 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="panel overflow-hidden">
         {isLoading && rows.length === 0 ? (
           <div className="flex items-center justify-center gap-2 py-20 text-muted text-sm">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -651,14 +650,14 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
                   const stock = row.variant.stockQuantity;
                   const stockTone =
                     stock <= 0
-                      ? 'bg-danger/10 text-danger border-danger/25'
+                      ? 'bg-danger/10 text-danger ring-danger/25'
                       : stock <= LOW_STOCK_THRESHOLD
-                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
-                        : 'bg-success/10 text-success border-success/25';
+                        ? 'bg-warning/10 text-warning ring-warning/25'
+                        : 'bg-success/10 text-success ring-success/25';
 
                   return (
                     <tr key={row.variant.id} className="hover:bg-surface/60 transition">
-                      <td className="px-4 py-2.5 font-mono text-muted whitespace-nowrap">
+                      <td className="px-4 py-2.5 num text-muted whitespace-nowrap">
                         {row.variant.sku}
                       </td>
                       <td className="px-4 py-2.5">
@@ -672,15 +671,15 @@ export function InventoryManager({ initialLowStockOnly = false, onCatalogChanged
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded-full border font-mono font-bold ${stockTone}`}
+                          className={`inline-block px-2 py-0.5 rounded-full ring-1 ring-inset num font-semibold ${stockTone}`}
                         >
                           {count(stock)}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-muted">
+                      <td className="px-4 py-2.5 text-right num text-muted">
                         {money(row.variant.cost)}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold">
+                      <td className="px-4 py-2.5 text-right num font-semibold">
                         {money(row.variant.price)}
                       </td>
                       <td className="px-4 py-2.5">

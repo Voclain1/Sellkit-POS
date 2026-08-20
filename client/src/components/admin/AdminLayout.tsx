@@ -31,10 +31,10 @@ export function AdminLayout({ user, isOnline, onExit, onCatalogChanged }: Props)
   if (!canAccessAdmin(user)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center bg-background text-foreground">
-        <div className="w-12 h-12 rounded-2xl bg-danger/10 text-danger border border-danger/25 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-2xl bg-danger/10 text-danger ring-1 ring-inset ring-danger/25 flex items-center justify-center">
           <ShieldAlert className="w-6 h-6" />
         </div>
-        <h2 className="font-extrabold text-base">Back office is restricted</h2>
+        <h2 className="font-semibold text-base tracking-tight">Back office is restricted</h2>
         <p className="text-xs text-muted max-w-sm">
           {user
             ? `${user.name} is signed in as ${user.role}. Inventory and analytics need an ADMIN or MANAGER account.`
@@ -42,7 +42,7 @@ export function AdminLayout({ user, isOnline, onExit, onCatalogChanged }: Props)
         </p>
         <button
           onClick={onExit}
-          className="mt-1 flex items-center gap-1.5 px-3 py-2 bg-surface border border-border rounded-xl text-xs font-bold text-muted hover:text-foreground transition"
+          className="btn-quiet mt-1 px-3 py-2 text-xs"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to the till
@@ -57,9 +57,7 @@ export function AdminLayout({ user, isOnline, onExit, onCatalogChanged }: Props)
       <nav className="md:w-56 shrink-0 bg-card border-b md:border-b-0 md:border-r border-border flex md:flex-col md:justify-between overflow-x-auto md:overflow-visible">
         <div className="flex md:flex-col gap-1 p-2 md:p-3 md:w-full">
           <div className="hidden md:block px-2 pb-2">
-            <span className="text-[10px] uppercase font-bold tracking-widest text-muted">
-              Back Office
-            </span>
+            <span className="micro-label">Back Office</span>
           </div>
 
           {NAV.map((item) => {
@@ -72,17 +70,18 @@ export function AdminLayout({ user, isOnline, onExit, onCatalogChanged }: Props)
                   setTab(item.tab);
                   if (item.tab !== 'inventory') setLowStockOnly(false);
                 }}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition whitespace-nowrap ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left whitespace-nowrap
+                  transition duration-150 active:scale-[0.98] ${
                   isActive
-                    ? 'bg-brand text-brand-foreground shadow-sm shadow-brand/25'
+                    ? 'bg-brand text-brand-foreground shadow-[var(--shadow-press),0_10px_24px_-12px_var(--color-brand)]'
                     : 'text-muted hover:text-foreground hover:bg-surface'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="leading-tight">
-                  <span className="block text-xs font-extrabold">{item.label}</span>
+                  <span className="block text-xs font-semibold">{item.label}</span>
                   <span
-                    className={`hidden md:block text-[10px] font-semibold ${
+                    className={`hidden md:block text-[10px] font-medium ${
                       isActive ? 'text-brand-foreground/70' : 'text-muted'
                     }`}
                   >
@@ -96,14 +95,14 @@ export function AdminLayout({ user, isOnline, onExit, onCatalogChanged }: Props)
 
         <div className="p-2 md:p-3 flex md:flex-col items-center md:items-stretch gap-2 shrink-0">
           {!isOnline && (
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 text-[10px] font-bold">
-              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+            <div className="hidden md:flex items-start gap-1.5 px-2.5 py-1.5 rounded-xl bg-warning/10 text-warning ring-1 ring-inset ring-warning/25 text-[10px] font-medium leading-snug">
+              <WifiOff className="w-3.5 h-3.5 shrink-0 mt-px" />
               <span>Offline — the back office is read/write against the server only.</span>
             </div>
           )}
           <button
             onClick={onExit}
-            className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-border rounded-xl text-xs font-bold text-muted hover:text-foreground transition whitespace-nowrap"
+            className="btn-quiet px-3 py-2 text-xs whitespace-nowrap"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Till

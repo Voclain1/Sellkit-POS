@@ -96,7 +96,7 @@ export function App() {
     // Keep the installed PWA's title bar in step with the in-app theme.
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', isDarkMode ? '#0f1524' : '#ffffff');
+      ?.setAttribute('content', isDarkMode ? '#0f172a' : '#ffffff');
   }, [isDarkMode]);
 
   // Network Status
@@ -604,13 +604,16 @@ export function App() {
 
       {/* Customer Selection Modal */}
       {isCustomerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-card border border-border rounded-2xl p-5 shadow-2xl text-card-foreground space-y-4">
+        <div className="modal-overlay">
+          <div className="panel w-full max-w-md p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-base">Attach Customer</h3>
+              <div className="leading-tight">
+                <h3 className="font-semibold text-base tracking-tight">Attach Customer</h3>
+                <span className="micro-label">Loyalty &amp; sale history</span>
+              </div>
               <button
                 onClick={() => setIsCustomerModalOpen(false)}
-                className="text-muted hover:text-foreground"
+                className="btn-quiet p-1.5"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -623,7 +626,7 @@ export function App() {
                 value={customerSearchQuery}
                 onChange={(e) => setCustomerSearchQuery(e.target.value)}
                 placeholder="Search by name, phone, or email..."
-                className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-brand"
+                className="field pl-9 pr-4 py-2 text-sm font-medium"
                 autoFocus
               />
             </div>
@@ -635,12 +638,12 @@ export function App() {
                     setSelectedCustomer(null);
                     setIsCustomerModalOpen(false);
                   }}
-                  className="w-full p-3 bg-surface hover:bg-border/60 border border-border rounded-xl text-left flex items-center gap-3 transition"
+                  className="w-full p-3 bg-surface hover:border-brand/40 border border-border rounded-xl text-left flex items-center gap-3 transition duration-150 active:scale-[0.98]"
                 >
-                  <div className="w-8 h-8 rounded-full bg-muted/20 text-muted flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-muted/15 text-muted ring-1 ring-inset ring-border flex items-center justify-center">
                     <UserX className="w-4 h-4" />
                   </div>
-                  <h4 className="font-bold text-xs">Detach customer (walk-in sale)</h4>
+                  <h4 className="font-semibold text-xs">Detach customer (walk-in sale)</h4>
                 </button>
               )}
 
@@ -663,22 +666,23 @@ export function App() {
                       setSelectedCustomer(c);
                       setIsCustomerModalOpen(false);
                     }}
-                    className={`w-full p-3 bg-surface hover:bg-border/60 border rounded-xl text-left flex items-center justify-between transition ${
-                      selectedCustomer?.id === c.id ? 'border-brand' : 'border-border'
+                    className={`w-full p-3 bg-surface hover:border-brand/40 border rounded-xl text-left flex items-center justify-between
+                      transition duration-150 active:scale-[0.98] ${
+                      selectedCustomer?.id === c.id ? 'border-brand/60 ring-1 ring-inset ring-brand/25' : 'border-border'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand/20 text-brand flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-brand/12 text-brand ring-1 ring-inset ring-brand/25 flex items-center justify-center">
                         <UserCheck className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-xs">{c.name}</h4>
+                        <h4 className="font-semibold text-xs">{c.name}</h4>
                         <span className="text-[10px] text-muted">
                           {c.phone || c.email || 'No contact details'}
                         </span>
                       </div>
                     </div>
-                    <span className="text-xs font-mono font-bold text-amber-400">
+                    <span className="num text-xs font-semibold text-warning">
                       {c.loyaltyPoints} pts
                     </span>
                   </button>

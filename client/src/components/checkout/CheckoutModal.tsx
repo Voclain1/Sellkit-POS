@@ -164,17 +164,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-card-foreground">
+    <div className="modal-overlay">
+      <div className="panel w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface">
-          <div>
-            <h2 className="text-xl font-black tracking-tight">Payment & Checkout</h2>
-            <p className="text-xs text-muted">Select payment tender and complete sale transaction</p>
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-elevated">
+          <div className="leading-tight">
+            <span className="micro-label">Checkout</span>
+            <h2 className="text-xl font-semibold tracking-tight">Payment &amp; Tender</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-muted hover:text-foreground bg-surface border border-border rounded-xl transition"
+            className="btn-quiet p-2"
           >
             <X className="w-5 h-5" />
           </button>
@@ -184,25 +184,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Payment Method Selection */}
           <div className="space-y-4">
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-muted">
-              Select Payment Method
-            </label>
+            <label className="micro-label block">Select Payment Method</label>
 
             <div className="grid grid-cols-1 gap-2.5">
               <button
                 type="button"
                 onClick={() => setSelectedMethod('CASH')}
-                className={`p-4 rounded-xl border flex items-center gap-3 transition text-left ${
+                className={`p-4 rounded-xl border flex items-center gap-3 text-left transition duration-150 active:scale-[0.99] ${
                   selectedMethod === 'CASH'
-                    ? 'bg-success/10 border-success text-success shadow-md shadow-success/10'
-                    : 'bg-surface border-border text-foreground hover:bg-border/60'
+                    ? 'bg-success/10 border-success/60 text-success ring-1 ring-inset ring-success/25'
+                    : 'bg-surface border-border text-foreground hover:border-muted/40'
                 }`}
               >
-                <div className="w-10 h-10 rounded-lg bg-success/20 text-success flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl bg-success/12 text-success ring-1 ring-inset ring-success/25 flex items-center justify-center">
                   <DollarSign className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Cash Payment</h4>
+                  <h4 className="font-semibold text-sm">Cash Payment</h4>
                   <span className="text-xs opacity-75">Quick change calculator & exact cash</span>
                 </div>
               </button>
@@ -210,17 +208,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedMethod('CARD')}
-                className={`p-4 rounded-xl border flex items-center gap-3 transition text-left ${
+                className={`p-4 rounded-xl border flex items-center gap-3 text-left transition duration-150 active:scale-[0.99] ${
                   selectedMethod === 'CARD'
-                    ? 'bg-brand/10 border-brand text-brand shadow-md shadow-brand/10'
-                    : 'bg-surface border-border text-foreground hover:bg-border/60'
+                    ? 'bg-brand/10 border-brand/60 text-brand ring-1 ring-inset ring-brand/25'
+                    : 'bg-surface border-border text-foreground hover:border-muted/40'
                 }`}
               >
-                <div className="w-10 h-10 rounded-lg bg-brand/20 text-brand flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl bg-brand/12 text-brand ring-1 ring-inset ring-brand/25 flex items-center justify-center">
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Credit / Debit Card</h4>
+                  <h4 className="font-semibold text-sm">Credit / Debit Card</h4>
                   <span className="text-xs opacity-75">EMV Chip, Contactless NFC, Swipe</span>
                 </div>
               </button>
@@ -232,17 +230,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   setSplitCashInput((netTotal / 2).toFixed(2));
                   setSplitCardInput((netTotal / 2).toFixed(2));
                 }}
-                className={`p-4 rounded-xl border flex items-center gap-3 transition text-left ${
+                className={`p-4 rounded-xl border flex items-center gap-3 text-left transition duration-150 active:scale-[0.99] ${
                   selectedMethod === 'OTHER'
-                    ? 'bg-accent/10 border-accent text-accent shadow-md shadow-accent/10'
-                    : 'bg-surface border-border text-foreground hover:bg-border/60'
+                    ? 'bg-accent/10 border-accent/60 text-accent ring-1 ring-inset ring-accent/25'
+                    : 'bg-surface border-border text-foreground hover:border-muted/40'
                 }`}
               >
-                <div className="w-10 h-10 rounded-lg bg-accent/20 text-accent flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl bg-accent/12 text-accent ring-1 ring-inset ring-accent/25 flex items-center justify-center">
                   <Split className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Split Tender</h4>
+                  <h4 className="font-semibold text-sm">Split Tender</h4>
                   <span className="text-xs opacity-75">Combine Cash + Card payment breakdown</span>
                 </div>
               </button>
@@ -250,7 +248,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {modifiers.note.trim() && (
               <div className="mt-4 p-3 bg-surface border border-border rounded-xl">
-                <span className="text-[10px] font-bold uppercase text-muted">Order note</span>
+                <span className="micro-label">Order note</span>
                 <p className="text-xs mt-1 whitespace-pre-wrap break-words">{modifiers.note}</p>
               </div>
             )}
@@ -258,12 +256,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {/* Attached Customer Info */}
             {customer && (
               <div className="mt-4 p-3 bg-surface border border-border rounded-xl flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-success/12 text-success ring-1 ring-inset ring-success/25 flex items-center justify-center">
                   <UserCheck className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col text-xs">
-                  <span className="font-bold text-foreground">{customer.name}</span>
-                  <span className="text-amber-400 font-mono">
+                  <span className="font-semibold text-foreground">{customer.name}</span>
+                  <span className="num text-warning">
                     Earns +{Math.floor(netTotal / 10)} Loyalty Points
                   </span>
                 </div>
@@ -274,16 +272,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {/* Right Column: Dynamic Tender Calculator & Amount */}
           <div className="space-y-4 flex flex-col justify-between">
             <div>
-              <div className="p-4 bg-surface border border-border rounded-xl mb-4 text-center">
-                <span className="text-xs font-semibold uppercase text-muted">Total Amount Due</span>
-                <div className="text-3xl font-black font-mono text-success mt-1">
-                  ${netTotal.toFixed(2)}
-                </div>
+              <div className="p-4 bg-elevated border border-border rounded-xl mb-4 text-center shadow-[var(--shadow-raised)]">
+                <span className="micro-label">Total Amount Due</span>
+                <div className="num-display text-4xl mt-1.5">${netTotal.toFixed(2)}</div>
               </div>
 
               {selectedMethod === 'CASH' && (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-muted">Amount Tendered ($)</label>
+                  <label className="micro-label block">Amount Tendered ($)</label>
 
                   <input
                     type="number"
@@ -291,7 +287,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     value={tenderedAmountInput}
                     onChange={(e) => setTenderedAmountInput(e.target.value)}
                     placeholder={netTotal.toFixed(2)}
-                    className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-2xl font-bold font-mono text-foreground focus:outline-none focus:border-brand"
+                    className="field num px-4 py-3 text-2xl font-semibold"
                     autoFocus
                   />
 
@@ -300,28 +296,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleQuickTender(netTotal)}
-                      className="py-2 bg-surface hover:bg-border/60 border border-border text-xs font-bold font-mono text-foreground rounded-lg transition"
+                      className="btn-quiet num py-2 text-xs rounded-lg hover:text-foreground"
                     >
                       Exact
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickTender(20)}
-                      className="py-2 bg-surface hover:bg-border/60 border border-border text-xs font-bold font-mono text-foreground rounded-lg transition"
+                      className="btn-quiet num py-2 text-xs rounded-lg hover:text-foreground"
                     >
                       $20
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickTender(50)}
-                      className="py-2 bg-surface hover:bg-border/60 border border-border text-xs font-bold font-mono text-foreground rounded-lg transition"
+                      className="btn-quiet num py-2 text-xs rounded-lg hover:text-foreground"
                     >
                       $50
                     </button>
                     <button
                       type="button"
                       onClick={() => handleQuickTender(100)}
-                      className="py-2 bg-surface hover:bg-border/60 border border-border text-xs font-bold font-mono text-foreground rounded-lg transition"
+                      className="btn-quiet num py-2 text-xs rounded-lg hover:text-foreground"
                     >
                       $100
                     </button>
@@ -329,8 +325,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* Change Due Display */}
                   <div className="p-3 bg-surface border border-border rounded-xl flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted">Change Due:</span>
-                    <span className="text-xl font-extrabold font-mono text-success">
+                    <span className="micro-label">Change Due</span>
+                    <span className="num text-xl font-semibold text-success">
                       ${changeDue.toFixed(2)}
                     </span>
                   </div>
@@ -340,23 +336,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {selectedMethod === 'OTHER' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-muted mb-1">Cash Portion ($)</label>
+                    <label className="micro-label block mb-1.5">Cash Portion ($)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={splitCashInput}
                       onChange={(e) => setSplitCashInput(e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-lg font-mono text-foreground focus:outline-none focus:border-brand"
+                      className="field num px-3 py-2 text-lg"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted mb-1">Card Portion ($)</label>
+                    <label className="micro-label block mb-1.5">Card Portion ($)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={splitCardInput}
                       onChange={(e) => setSplitCardInput(e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-lg font-mono text-foreground focus:outline-none focus:border-brand"
+                      className="field num px-3 py-2 text-lg"
                     />
                   </div>
                 </div>
@@ -364,7 +360,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             {errorMessage && (
-              <div className="text-xs font-semibold text-danger bg-danger/10 p-3 rounded-xl border border-danger/20">
+              <div className="text-xs font-medium text-danger bg-danger/10 p-3 rounded-xl ring-1 ring-inset ring-danger/25">
                 {errorMessage}
               </div>
             )}
@@ -372,9 +368,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 border-t border-border bg-surface flex items-center justify-end gap-3">
+        <div className="p-4 border-t border-border bg-elevated flex items-center justify-end gap-3">
           {!isTerminalReady && (
-            <div className="mr-auto flex items-center gap-2 text-[11px] font-semibold text-amber-400">
+            <div className="mr-auto flex items-center gap-2 text-[11px] font-medium text-warning">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               Terminal not bound to an outlet/till yet
             </div>
@@ -382,7 +378,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-3 bg-surface hover:bg-border/60 border border-border font-bold text-xs text-muted rounded-xl transition"
+            className="btn-quiet px-5 py-3 text-xs"
           >
             Back to Cart
           </button>
@@ -390,7 +386,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             type="button"
             onClick={handleCompleteCheckout}
             disabled={isSubmitting || !isTerminalReady}
-            className="px-6 py-3 bg-success hover:brightness-110 disabled:opacity-50 text-success-foreground font-extrabold text-sm rounded-xl shadow-lg transition flex items-center gap-2"
+            className="btn-success px-6 py-3 text-sm"
           >
             {isSubmitting ? 'Processing...' : 'Complete Sale'}
             <ArrowRight className="w-4 h-4 stroke-[3]" />

@@ -1,70 +1,125 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Two palettes, one set of names. Components only ever reference the semantic
+   token (bg-card, text-muted, border-border); the raw hex lives here and only
+   here, so the whole terminal re-themes from one block.
+
+   The dark palette is the one a till actually runs in: a deep blue-black ground
+   (#090D16) with two lifted planes above it, separated by light rather than by
+   hard rules — borders are low-alpha white, so panels read as layers of one
+   material instead of boxes drawn on top of each other.
+   --------------------------------------------------------------------------- */
 @layer base {
   :root {
-    --color-brand: hsl(220 70% 50%);
-    --color-brand-foreground: hsl(0 0% 100%);
-    --color-accent: hsl(270 65% 55%);
-    --color-accent-foreground: hsl(0 0% 100%);
-    --color-surface: hsl(220 15% 95%);
-    --color-surface-foreground: hsl(220 15% 10%);
-    --color-success: hsl(152 60% 42%);
-    --color-success-foreground: hsl(0 0% 100%);
-    --color-danger: hsl(0 72% 51%);
-    --color-danger-foreground: hsl(0 0% 100%);
-    --color-background: hsl(0 0% 100%);
-    --color-foreground: hsl(222 47% 11%);
-    --color-muted: hsl(215 16% 47%);
-    --color-border: hsl(220 13% 91%);
-    --color-card: hsl(0 0% 100%);
-    --color-card-foreground: hsl(222 47% 11%);
+    /* Indigo carries every primary action; violet is its quieter sibling, used
+       for split tender and other secondary emphasis. */
+    --color-brand: #4f46e5;
+    --color-brand-hover: #4338ca;
+    /* Focus halo. An explicit rgba rather than a color-mix on --color-brand:
+       the minifier folds the mix down to a fully opaque ring. */
+    --color-brand-ring: rgb(79 70 229 / 0.22);
+    --color-brand-foreground: #ffffff;
+    --color-accent: #7c3aed;
+    --color-accent-foreground: #ffffff;
+
+    --color-success: #059669;
+    --color-success-foreground: #ffffff;
+    --color-warning: #b45309;
+    --color-warning-foreground: #ffffff;
+    --color-danger: #dc2626;
+    --color-danger-foreground: #ffffff;
+
+    --color-background: #f4f5f8;
+    --color-foreground: #0f172a;
+    --color-card: #ffffff;
+    --color-card-foreground: #0f172a;
+    --color-surface: #eef0f5;
+    --color-surface-foreground: #0f172a;
+    --color-elevated: #f8f9fb;
+    --color-muted: #64748b;
+    --color-border: rgb(15 23 42 / 0.1);
+    --color-overlay: rgb(15 23 42 / 0.45);
+
+    /* Layered depth: a hairline of light along the top edge, then a soft cast
+       shadow. Reads faster at arm's length than a heavier border would. */
+    --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.6) inset,
+      0 24px 60px -20px rgb(15 23 42 / 0.28), 0 2px 8px -2px rgb(15 23 42 / 0.1);
+    --shadow-raised: 0 1px 0 0 rgb(255 255 255 / 0.7) inset,
+      0 1px 2px 0 rgb(15 23 42 / 0.08);
+    --shadow-press: 0 1px 0 0 rgb(255 255 255 / 0.18) inset,
+      0 1px 2px 0 rgb(15 23 42 / 0.2);
   }
 
   .dark {
-    --color-brand: hsl(217 91% 60%);
-    --color-brand-foreground: hsl(0 0% 100%);
-    --color-accent: hsl(270 60% 65%);
-    --color-accent-foreground: hsl(0 0% 100%);
-    --color-surface: hsl(222 47% 11%);
-    --color-surface-foreground: hsl(210 40% 96%);
-    --color-success: hsl(152 60% 50%);
-    --color-success-foreground: hsl(0 0% 100%);
-    --color-danger: hsl(0 72% 60%);
-    --color-danger-foreground: hsl(0 0% 100%);
-    --color-background: hsl(224 50% 6%);
-    --color-foreground: hsl(210 40% 98%);
-    --color-muted: hsl(215 20% 55%);
-    --color-border: hsl(217 33% 17%);
-    --color-card: hsl(222 40% 10%);
-    --color-card-foreground: hsl(210 40% 98%);
+    --color-brand: #6366f1;
+    --color-brand-hover: #7c7df6;
+    --color-brand-ring: rgb(99 102 241 / 0.3);
+    --color-brand-foreground: #ffffff;
+    --color-accent: #a78bfa;
+    --color-accent-foreground: #12091f;
+
+    --color-success: #10b981;
+    --color-success-foreground: #04170f;
+    --color-warning: #f59e0b;
+    --color-warning-foreground: #1a1003;
+    --color-danger: #f87171;
+    --color-danger-foreground: #1b0808;
+
+    --color-background: #090d16;
+    --color-foreground: #e8ecf5;
+    --color-card: #0f172a;
+    --color-card-foreground: #e8ecf5;
+    --color-surface: #1e293b;
+    --color-surface-foreground: #e8ecf5;
+    --color-elevated: #172236;
+    --color-muted: #8a98b0;
+    --color-border: rgb(255 255 255 / 0.09);
+    --color-overlay: rgb(9 13 22 / 0.72);
+
+    --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.06) inset,
+      0 30px 70px -24px rgb(0 0 0 / 0.85), 0 2px 10px -2px rgb(0 0 0 / 0.6);
+    --shadow-raised: 0 1px 0 0 rgb(255 255 255 / 0.05) inset,
+      0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-press: 0 1px 0 0 rgb(255 255 255 / 0.1) inset,
+      0 1px 2px 0 rgb(0 0 0 / 0.5);
   }
 }
 
 @theme inline {
   --color-brand: var(--color-brand);
+  --color-brand-hover: var(--color-brand-hover);
   --color-brand-foreground: var(--color-brand-foreground);
   --color-accent: var(--color-accent);
   --color-accent-foreground: var(--color-accent-foreground);
-  --color-surface: var(--color-surface);
-  --color-surface-foreground: var(--color-surface-foreground);
   --color-success: var(--color-success);
   --color-success-foreground: var(--color-success-foreground);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
   --color-danger: var(--color-danger);
   --color-danger-foreground: var(--color-danger-foreground);
   --color-background: var(--color-background);
   --color-foreground: var(--color-foreground);
-  --color-muted: var(--color-muted);
-  --color-border: var(--color-border);
   --color-card: var(--color-card);
   --color-card-foreground: var(--color-card-foreground);
+  --color-surface: var(--color-surface);
+  --color-surface-foreground: var(--color-surface-foreground);
+  --color-elevated: var(--color-elevated);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-overlay: var(--color-overlay);
 }
 
 @layer base {
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-family: "Inter", "Segoe UI Variable Text", system-ui, -apple-system, sans-serif;
+    /* Every figure on a till is read in a column against another figure. */
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -72,6 +127,159 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
+  }
+
+  /* One focus treatment everywhere, on the keyboard path only — a cashier
+     tapping a touchscreen should never see a ring chase their finger. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Component layer.
+
+   The handful of shapes the terminal repeats: overlays, panels, buttons, pills,
+   fields and money. Defined once, so the payment modal and the shift modal are
+   demonstrably the same object rather than two near-misses.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* The small uppercase caption that sits above a value. */
+  .micro-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* Money and counts. Tabular, so decimal points line up down a cart, a table
+     column and a receipt alike. */
+  .num,
+  .num-display,
+  .kbd {
+    font-family: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Mono",
+      "Roboto Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* The headline figure — an order total, a drawer count, a day's revenue. */
+  .num-display {
+    @apply font-bold text-foreground;
+    letter-spacing: -0.035em;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+    background: var(--color-overlay);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  .panel {
+    @apply bg-card border border-border text-card-foreground rounded-2xl;
+    box-shadow: var(--shadow-panel);
+  }
+
+  /* Base button: shared geometry, press physics and disabled behaviour. Colour
+     comes from one of the modifiers below. */
+  .btn,
+  .btn-primary,
+  .btn-success,
+  .btn-quiet,
+  .btn-warning,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl font-semibold
+      transition-[background-color,color,box-shadow,transform,border-color] duration-150;
+  }
+
+  /* Written out rather than @applied: a variant utility inside a grouped
+     selector compiles to a broken :is() and the state is silently dropped. */
+  .btn:active,
+  .btn-primary:active,
+  .btn-success:active,
+  .btn-quiet:active,
+  .btn-warning:active,
+  .btn-danger:active {
+    scale: 0.98;
+  }
+
+  .btn:disabled,
+  .btn-primary:disabled,
+  .btn-success:disabled,
+  .btn-quiet:disabled,
+  .btn-warning:disabled,
+  .btn-danger:disabled {
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  .btn-primary {
+    @apply bg-brand text-brand-foreground hover:bg-brand-hover;
+    box-shadow: var(--shadow-press), 0 8px 20px -8px var(--color-brand);
+  }
+
+  .btn-success {
+    @apply bg-success text-success-foreground hover:brightness-110;
+    box-shadow: var(--shadow-press), 0 10px 24px -10px var(--color-success);
+  }
+
+  /* Quiet: the default for anything that is not the one action on the screen. */
+  .btn-quiet {
+    @apply bg-surface text-muted border border-border hover:text-foreground;
+    box-shadow: var(--shadow-raised);
+  }
+
+  .btn-warning {
+    @apply bg-warning/10 text-warning border border-warning/25 hover:bg-warning/20;
+  }
+
+  .btn-danger {
+    @apply bg-danger/10 text-danger border border-danger/25 hover:bg-danger/20;
+  }
+
+  /* Status pill. A ring rather than a filled block: at a glance it should read
+     as a state, not as something to press. */
+  .pill,
+  .pill-brand,
+  .pill-success,
+  .pill-warning,
+  .pill-danger,
+  .pill-muted {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1
+      text-[10px] font-semibold uppercase tracking-[0.09em] ring-1 ring-inset;
+  }
+
+  .pill-brand {
+    @apply bg-brand/10 text-brand ring-brand/25;
+  }
+  .pill-success {
+    @apply bg-success/10 text-success ring-success/25;
+  }
+  .pill-warning {
+    @apply bg-warning/10 text-warning ring-warning/25;
+  }
+  .pill-danger {
+    @apply bg-danger/10 text-danger ring-danger/25;
+  }
+  .pill-muted {
+    @apply bg-surface text-muted ring-border;
+  }
+
+  /* Text input / textarea. */
+  .field {
+    @apply w-full rounded-xl bg-surface border border-border text-foreground
+      placeholder:text-muted transition-[border-color,box-shadow] duration-150
+      focus:outline-none focus:border-brand;
+    box-shadow: var(--shadow-press);
+  }
+  .field:focus {
+    box-shadow: var(--shadow-press), 0 0 0 3px var(--color-brand-ring);
+  }
+
+  /* Keycap for the function-key hints (F1/F2/F3). */
+  .kbd {
+    @apply rounded px-1.5 py-0.5 text-[9px] font-semibold
+      text-muted ring-1 ring-inset ring-border;
+    background: color-mix(in oklab, var(--color-foreground) 8%, transparent);
   }
 }
 

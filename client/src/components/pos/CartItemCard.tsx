@@ -53,32 +53,32 @@ export function CartItemCard({
           setIsExpanded((open) => !open);
         }
       }}
-      className={`rounded-xl p-2.5 border cursor-pointer transition-colors ${
+      className={`rounded-xl p-2.5 border cursor-pointer transition duration-150 active:scale-[0.995] ${
         isExpanded
-          ? 'bg-card border-success ring-1 ring-success shadow-md'
-          : 'bg-surface border-border hover:border-muted/40'
+          ? 'bg-card border-brand/50 ring-1 ring-inset ring-brand/30 shadow-[var(--shadow-raised)]'
+          : 'bg-surface border-border hover:border-brand/30'
       }`}
     >
       {/* Collapsed row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
-          <span className="text-[10px] font-mono text-muted w-4 shrink-0 mt-0.5">{index + 1}</span>
+          <span className="num text-[10px] text-muted w-4 shrink-0 mt-0.5">{index + 1}</span>
           <div className="min-w-0">
-            <h4 className="font-bold text-[11px] leading-tight line-clamp-1">{item.productName}</h4>
-            <p className="text-[9px] text-muted font-mono mt-0.5 line-clamp-1">
+            <h4 className="font-semibold text-[11px] leading-tight line-clamp-1">{item.productName}</h4>
+            <p className="num text-[9px] text-muted mt-0.5 line-clamp-1">
               {item.variantName || item.variant.name || item.variant.sku}
             </p>
-            <p className="text-[9px] text-muted mt-0.5">
+            <p className="num text-[9px] text-muted mt-0.5">
               {item.quantity} &times; ${effectiveUnitPrice.toFixed(2)}
               {discountPercent > 0 && (
-                <span className="ml-1 text-amber-500 font-semibold">-{discountPercent}%</span>
+                <span className="ml-1.5 text-warning font-semibold">-{discountPercent}%</span>
               )}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="font-bold text-[11px] font-mono">${lineTotal.toFixed(2)}</span>
+          <span className="num-display text-[12px]">${lineTotal.toFixed(2)}</span>
           <ChevronDown
             className={`w-3 h-3 text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
@@ -98,7 +98,7 @@ export function CartItemCard({
       </div>
 
       {overStock && (
-        <p className="text-[9px] text-danger font-semibold mt-1.5">
+        <p className="text-[9px] text-danger font-medium mt-1.5">
           Only {item.variant.stockQuantity} in stock — checkout will be rejected.
         </p>
       )}
@@ -111,14 +111,14 @@ export function CartItemCard({
           onKeyDown={(e) => e.stopPropagation()}
         >
           <div className="flex-1">
-            <label className="text-[10px] font-semibold text-muted mb-1 block">Quantity</label>
-            <div className="flex items-center h-8 rounded-lg border border-border bg-card overflow-hidden">
+            <label className="micro-label mb-1 block">Quantity</label>
+            <div className="flex items-center h-8 rounded-lg border border-border bg-card overflow-hidden shadow-[var(--shadow-press)]">
               <button
                 type="button"
                 aria-label="Decrease quantity"
                 onClick={() => setQuantity(item.quantity - 1)}
                 disabled={item.quantity <= 1}
-                className="px-2 h-full border-r border-border text-muted hover:text-foreground hover:bg-surface disabled:opacity-30 transition"
+                className="px-2 h-full border-r border-border text-muted hover:text-foreground hover:bg-surface disabled:opacity-30 transition active:scale-[0.94]"
               >
                 <Minus className="w-3 h-3" />
               </button>
@@ -130,13 +130,13 @@ export function CartItemCard({
                 value={item.quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value, 10))}
                 aria-label="Quantity"
-                className="w-full h-full text-center text-[11px] font-bold font-mono bg-transparent focus:outline-none focus:ring-1 focus:ring-success"
+                className="num w-full h-full text-center text-[11px] font-semibold bg-transparent focus:outline-none"
               />
               <button
                 type="button"
                 aria-label="Increase quantity"
                 onClick={() => setQuantity(item.quantity + 1)}
-                className="px-2 h-full border-l border-border text-muted hover:text-foreground hover:bg-surface transition"
+                className="px-2 h-full border-l border-border text-muted hover:text-foreground hover:bg-surface transition active:scale-[0.94]"
               >
                 <Plus className="w-3 h-3" />
               </button>
@@ -144,7 +144,7 @@ export function CartItemCard({
           </div>
 
           <div className="flex-1">
-            <label className="text-[10px] font-semibold text-muted mb-1 block">Discount (%)</label>
+            <label className="micro-label mb-1 block">Discount (%)</label>
             <input
               type="number"
               min="0"
@@ -155,7 +155,7 @@ export function CartItemCard({
               disabled={!onUpdateDiscount}
               value={discountPercent > 0 ? discountPercent : ''}
               onChange={(e) => setDiscount(e.target.value)}
-              className="w-full h-8 px-2.5 rounded-lg border border-border bg-card text-[11px] font-bold font-mono focus:outline-none focus:ring-1 focus:ring-success focus:border-success disabled:opacity-40"
+              className="field num h-8 px-2.5 rounded-lg text-[11px] font-semibold disabled:opacity-40"
             />
           </div>
         </div>

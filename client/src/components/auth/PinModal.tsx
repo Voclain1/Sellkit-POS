@@ -129,8 +129,8 @@ export function PinModal({ isOpen, onSuccess }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 text-card-foreground">
+    <div className="modal-overlay">
+      <div className="panel w-full max-w-md p-6">
         {!showFloat ? (
           <>
             {/* Which door: the till, or the back office. */}
@@ -144,9 +144,10 @@ export function PinModal({ isOpen, onSuccess }: Props) {
                     type="button"
                     onClick={() => switchMode(m.mode)}
                     disabled={loading}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition disabled:opacity-50 ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold
+                      transition duration-150 active:scale-[0.98] disabled:opacity-50 ${
                       isActive
-                        ? 'bg-brand text-brand-foreground shadow-sm'
+                        ? 'bg-brand text-brand-foreground shadow-[var(--shadow-press)]'
                         : 'text-muted hover:text-foreground'
                     }`}
                   >
@@ -158,35 +159,35 @@ export function PinModal({ isOpen, onSuccess }: Props) {
             </div>
 
             <div className="flex flex-col items-center mb-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-3">
-                <Lock className="w-7 h-7" />
+              <div className="w-14 h-14 rounded-2xl bg-brand/10 text-brand ring-1 ring-inset ring-brand/25 flex items-center justify-center mb-3">
+                <Lock className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight">{active.heading}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">{active.heading}</h2>
               <p className="text-sm text-muted mt-1">{active.blurb}</p>
             </div>
             <div className="flex justify-center gap-4 mb-6">
               {[0, 1, 2, 3].map(i => (
-                <div key={i} className={`w-5 h-5 rounded-full border-2 transition-all duration-200 ${pin.length > i ? 'bg-brand border-brand scale-110 shadow-lg shadow-brand/40' : 'border-muted/40'}`} />
+                <div key={i} className={`w-4 h-4 rounded-full transition-all duration-200 ${pin.length > i ? 'bg-brand scale-110 shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-brand)_20%,transparent)]' : 'bg-transparent ring-1 ring-border'}`} />
               ))}
             </div>
-            {error && <div className="mb-4 text-center text-sm font-medium text-danger bg-danger/10 py-2 rounded-lg border border-danger/20">{error}</div>}
+            {error && <div className="mb-4 text-center text-sm font-medium text-danger bg-danger/10 py-2 rounded-lg ring-1 ring-inset ring-danger/25">{error}</div>}
             <div className="grid grid-cols-3 gap-2.5 mb-4">
               {['1','2','3','4','5','6','7','8','9'].map(n => (
                 <button key={n} type="button" onClick={() => press(n)} disabled={loading}
-                  className="py-4 text-2xl font-bold bg-surface hover:brightness-110 active:scale-95 transition rounded-xl text-foreground border border-border">{n}</button>
+                  className="num py-4 text-2xl font-semibold bg-surface hover:brightness-125 active:scale-95 transition duration-150 rounded-xl text-foreground border border-border shadow-[var(--shadow-raised)]">{n}</button>
               ))}
               <button type="button" onClick={clear} disabled={loading}
-                className="py-4 text-xs font-bold bg-surface/50 text-muted rounded-xl">CLR</button>
+                className="micro-label py-4 bg-surface/50 hover:text-foreground rounded-xl transition active:scale-95">Clear</button>
               <button type="button" onClick={() => press('0')} disabled={loading}
-                className="py-4 text-2xl font-bold bg-surface hover:brightness-110 active:scale-95 transition rounded-xl text-foreground border border-border">0</button>
+                className="num py-4 text-2xl font-semibold bg-surface hover:brightness-125 active:scale-95 transition duration-150 rounded-xl text-foreground border border-border shadow-[var(--shadow-raised)]">0</button>
               <button type="button" onClick={back} disabled={loading}
-                className="py-4 text-sm font-bold bg-surface/50 text-muted rounded-xl">⌫</button>
+                className="py-4 text-sm font-semibold bg-surface/50 text-muted hover:text-foreground rounded-xl transition active:scale-95">⌫</button>
             </div>
             <button onClick={submitPin} disabled={loading || pin.length !== 4}
-              className="w-full py-3.5 bg-brand hover:brightness-110 disabled:opacity-40 text-brand-foreground font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+              className="btn-primary w-full py-3.5 text-sm">
               {loading ? 'Authenticating…' : 'Unlock Terminal'}<ArrowRight className="w-5 h-5" />
             </button>
-            <p className="mt-3 text-center text-xs text-muted">Demo PIN: {active.demoPin}</p>
+            <p className="mt-3 text-center micro-label">Demo PIN <span className="num tracking-normal">{active.demoPin}</span></p>
           </>
         ) : (
           <OpenShiftModal

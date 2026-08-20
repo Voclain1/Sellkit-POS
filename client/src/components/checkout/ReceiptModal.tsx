@@ -24,13 +24,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ receipt, outlet, onC
     // `receipt-*` classes are print hooks: @media print in index.css unwraps this
     // modal chrome so a long receipt is not clipped by the scroll container or
     // by the backdrop-filter, which is a containing block for its descendants.
-    <div className="receipt-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-      <div className="receipt-panel w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-card-foreground">
+    <div className="receipt-overlay modal-overlay">
+      <div className="receipt-panel panel w-full max-w-sm overflow-hidden flex flex-col max-h-[90vh]">
         {/* Top Notification */}
         <div className="no-print p-4 bg-success/10 border-b border-success/20 text-center flex flex-col items-center">
           <CheckCircle2 className="w-10 h-10 text-success mb-1 animate-bounce" />
-          <h3 className="font-extrabold text-base text-success">Payment Successful</h3>
-          <span className="text-xs text-muted">Receipt #{receipt.receiptNumber}</span>
+          <h3 className="font-semibold text-base text-success tracking-tight">Payment Successful</h3>
+          <span className="micro-label mt-0.5">Receipt <span className="num tracking-normal">#{receipt.receiptNumber}</span></span>
         </div>
 
         {/* 80mm Thermal Receipt Content — deliberately literal black on white,
@@ -147,16 +147,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ receipt, outlet, onC
         </div>
 
         {/* Modal Actions */}
-        <div className="no-print p-4 border-t border-border bg-surface flex items-center gap-3">
+        <div className="no-print p-4 border-t border-border bg-elevated flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-surface hover:bg-border/60 border border-border font-bold text-xs text-muted rounded-xl transition"
+            className="btn-quiet flex-1 py-3 text-xs"
           >
             New Sale
           </button>
           <button
             onClick={handlePrint}
-            className="flex-1 py-3 bg-brand hover:brightness-110 font-extrabold text-xs text-brand-foreground rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+            className="btn-primary flex-1 py-3 text-xs"
           >
             <Printer className="w-4 h-4" />
             <span>Print Receipt</span>

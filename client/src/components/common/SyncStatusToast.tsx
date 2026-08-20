@@ -17,10 +17,10 @@ interface Props {
 type Tone = 'info' | 'progress' | 'success' | 'error';
 
 const TONE_STYLES: Record<Tone, string> = {
-  info: 'bg-card border-border text-foreground',
-  progress: 'bg-card border-brand/40 text-foreground',
-  success: 'bg-card border-success/40 text-foreground',
-  error: 'bg-card border-danger/40 text-foreground',
+  info: 'border-border',
+  progress: 'border-brand/30',
+  success: 'border-success/30',
+  error: 'border-danger/30',
 };
 
 export function SyncStatusToast({
@@ -78,13 +78,13 @@ export function SyncStatusToast({
     <div
       role="status"
       aria-live="polite"
-      className={`no-print fixed bottom-4 left-4 z-[60] w-[19rem] max-w-[calc(100vw-2rem)] rounded-xl border shadow-2xl px-4 py-3 text-xs ${TONE_STYLES[tone]}`}
+      className={`no-print panel fixed bottom-4 left-4 z-[60] w-[19rem] max-w-[calc(100vw-2rem)] px-4 py-3 text-xs ${TONE_STYLES[tone]}`}
     >
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5">{icon}</span>
 
         <div className="flex-1 min-w-0 space-y-1">
-          <h4 className="font-extrabold leading-tight">{title}</h4>
+          <h4 className="font-semibold leading-tight">{title}</h4>
           <p className="text-[11px] text-muted leading-snug break-words">{detail}</p>
 
           {blockedSyncCount > 0 && (
