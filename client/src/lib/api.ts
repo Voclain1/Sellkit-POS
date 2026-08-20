@@ -1,4 +1,15 @@
-const DEFAULT_API_BASE_URL = 'http://localhost:3000/api';
+/** Where the API lives in a dev checkout, alongside `npm run dev`. */
+const DEV_API_BASE_URL = 'http://localhost:3000/api';
+
+/**
+ * Live API. Compiled into the bundle as the last-resort default so a production
+ * deploy with a missing or misconfigured VITE_API_BASE_URL still reaches a real
+ * server instead of the visitor's own machine.
+ */
+const PROD_API_BASE_URL = 'https://sellkit-pos.onrender.com/api';
+
+/** Loopback in a production bundle means every visitor's browser calls itself. */
+const LOOPBACK = /^https?:\/\/(localhost|127(?:\.\d+){3}|\[::1\]|0\.0\.0\.0)(:\d+)?(\/|$)/i;
 
 /**
  * Resolve VITE_API_BASE_URL, tolerating the ways it gets mangled in a hosting
@@ -12,7 +23,25 @@ const DEFAULT_API_BASE_URL = 'http://localhost:3000/api';
  * Repair what can be repaired safely, and say so loudly rather than fail silently.
  */
 function resolveApiBaseUrl(): string {
-  const raw = (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim();
+  const fallback = import.meta.env.PROD ? PROD_API_BASE_URL : DEV_API_BASE_URL;
+
+  // Empty counts as absent. A hosting dashboard readily stores VITE_API_BASE_URL
+  // as "", which is *defined* -- so `??` does not fire and the value flows through
+  // as a blank base URL. This is not hypothetical: it is what pointed the live
+  // Vercel build at localhost.
+  const configured = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+  if (configured === '') {
+    if (import.meta.env.PROD) {
+      console.error(
+        'VITE_API_BASE_URL is unset or empty in a production build. Falling back to ' +
+          JSON.stringify(PROD_API_BASE_URL) + '. Set it in the hosting environment and ' +
+          'redeploy - Vite inlines this at build time.'
+      );
+    }
+    return fallback;
+  }
+
+  const raw = configured;
 
   // "[label](target)" -> target
   const markdown = raw.match(/^\[([^\]]*)\]\((.+)\)$/);
@@ -29,14 +58,28 @@ function resolveApiBaseUrl(): string {
     );
   }
 
+  // A production bundle pointed at loopback is never right: "localhost" resolves
+  // on the *visitor's* machine, so every call fails for everyone but the person
+  // who ran the build. Prefer the known live API over an address that cannot work.
+  if (import.meta.env.PROD && LOOPBACK.test(cleaned)) {
+    console.error(
+      'VITE_API_BASE_URL (' + JSON.stringify(cleaned) + ') points at loopback in a production ' +
+        'build, which resolves against each visitor\'s own machine. Falling back to ' +
+        JSON.stringify(PROD_API_BASE_URL) + '. Set VITE_API_BASE_URL in the hosting ' +
+        'environment and redeploy - Vite inlines this at build time.'
+    );
+    return PROD_API_BASE_URL;
+  }
+
   if (!/^https?:\/\//i.test(cleaned) && !cleaned.startsWith('/')) {
     console.error(
       'VITE_API_BASE_URL (' + JSON.stringify(cleaned) + ') is neither an absolute URL nor a ' +
         'root-relative path, so every request resolves against the frontend origin and 404s.'
     );
+    if (import.meta.env.PROD) return PROD_API_BASE_URL;
   }
 
-  return cleaned || DEFAULT_API_BASE_URL;
+  return cleaned || fallback;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
