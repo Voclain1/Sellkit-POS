@@ -1,0 +1,70 @@
+# Render Blueprint — Sellkit POS API.
+#
+# Deploys server/ only. The client is hosted on Vercel and reaches this service
+# through VITE_API_BASE_URL (see client/.env.example).
+#
+# Apply from the Render dashboard: Blueprints -> New Blueprint Instance, pointed
+# at this repo. Render reads this file from the repository root on every push.
+
+services:
+  - type: web
+    name: Sellkit-POS
+    runtime: node
+    # `plan` must be stated explicitly: a blueprint that omits it provisions the
+    # paid Starter tier. Free spins down when idle, so the first request after a
+    # quiet spell is slow -- raise this if that is not acceptable at a till.
+    plan: free
+    rootDir: server
+
+    # Three things happen here, and all three are load-bearing:
+    #
+    #   --include=dev  Render sets NODE_ENV=production, and npm then skips
+    #                  devDependencies. typescript and the prisma CLI both live
+    #                  there, so a plain `npm install` leaves the build with no
+    #                  `tsc` to run.
+    #   prisma:generate  src/ imports types from @prisma/client, so the client
+    #                  must exist before tsc runs. @prisma/client has a postinstall
+    #                  that usually generates it, but Render restores a cached
+    #                  node_modules between builds and postinstall does not re-run
+    #                  on a cache hit -- which yields a stale client after a schema
+    #                  change. Generating explicitly is idempotent and cheap.
+    #   build          tsc -> dist/
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+
+    startCommand: npm run start
+    autoDeploy: true
+
+    # Render polls this and will not route traffic to an instance that fails it.
+    # /api/health pings PostgreSQL, so a healthy instance also proves the database
+    # connection works rather than merely that the process is up.
+    healthCheckPath: /api/health
+
+    envVars:
+      # sync: false -- Render prompts for these once and stores them on the
+      # service. They are never read from this file, which is committed.
+      - key: DATABASE_URL
+        sync: false
+      - key: PIN_PEPPER
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+# Notes, deliberately not encoded above:
+#
+# PORT is injected by Render and read by src/index.ts. Do not set it here.
+#
+# PIN_PEPPER must match whatever hashed the PINs already in the database, or
+# every stored PIN stops verifying (see server/src/lib/pin.ts). Carry the
+# existing value across; do not generate a fresh one for this service.
+#
+# Migrations are NOT run on deploy. `npm run prisma:deploy` (prisma migrate
+# deploy) could be appended to buildCommand -- the database already has a
+# _prisma_migrations table with the init migration applied, so it would be a
+# safe no-op today and would ship future schema changes automatically. It is
+# left out because applying migrations to production on every push is a call
+# for a human to make, not a default to inherit.
+#
+# The database is a Neon instance in eu-central-1. Render's default region is
+# Oregon, which puts a transatlantic round trip on every query. Adding
+# `region: frankfurt` co-locates them -- but region cannot be changed on an
+# existing service, so it is only worth setting when creating a fresh one.
