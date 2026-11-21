@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { CreditCard, DollarSign, Split, X, UserCheck, ArrowRight, AlertTriangle } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import type { CartItem, Customer, PaymentMethod, PaymentSplitInput, SaleReceipt } from '../../types/pos';
-import { apiFetch } from '../../lib/api';
+import type { CartItem, Customer, PaymentMethod, PaymentSplitInput, SaleReceipt, User } from '../../types/pos';
+import { apiFetch, ApiError } from '../../lib/api';
 import { queueOfflineSale } from '../../lib/offline/db';
+import { newClientSaleId } from '../../lib/ids';
 import { computeCartTotals, emptyModifiers, type OrderModifiers } from '../../lib/cartTotals';
 
 interface CheckoutModalProps {
@@ -22,9 +23,21 @@ interface CheckoutModalProps {
    */
   modifiers?: OrderModifiers;
   isOnline: boolean;
+  /** Open shift on this till; stamped on the sale so it counts towards it. */
+  shiftId?: string;
+  /** Signed-in cashier, printed on offline receipts and credited with the sale. */
+  cashier?: User | null;
+  /** The server says the till's prices are stale; reload the catalogue. */
+  onCatalogStale?: () => void;
   onClose: () => void;
   onSuccess: (receipt: SaleReceipt) => void;
 }
+
+/** How long an online checkout may take before the sale is queued instead. */
+const CHECKOUT_TIMEOUT_MS = 15000;
+
+/** 409 codes that mean the till's catalogue is out of date. */
+const STALE_CATALOG_CODES = new Set(['PRICE_CHANGED', 'TAX_CHANGED', 'TOTAL_MISMATCH']);
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
@@ -35,6 +48,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   taxRate = 0.08,
   modifiers = emptyModifiers,
   isOnline,
+  shiftId,
+  cashier,
+  onCatalogStale,
   onClose,
   onSuccess,
 }) => {
@@ -98,54 +114,86 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         if (cardVal > 0) splits.push({ paymentMethod: 'CARD', amount: cardVal });
       }
 
+      // One id per sale, generated before the first attempt. If this POST lands
+      // but the response is lost, the queued copy carries the same id and the
+      // server returns the original sale instead of recording it twice.
       const checkoutPayload = {
+        clientSaleId: newClientSaleId(),
+        soldAt: new Date().toISOString(),
+        soldByUserId: cashier?.id,
         outletId,
         tillId,
+        shiftId,
         customerId: customer?.id || undefined,
+        // List price plus the line discount, not a pre-discounted price: the
+        // server prices online sales from its own catalogue and needs both.
         items: cart.map((i) => ({
           productVariantId: i.variant.id,
           quantity: i.quantity,
-          unitPrice: i.unitPrice * (1 - (i.discount || 0) / 100),
+          unitPrice: i.unitPrice,
+          discountPercent: i.discount || 0,
         })),
         paymentSplits: splits,
         tax: taxAmount,
         discount: orderDiscount,
-        isOfflineSync: !isOnline,
       };
 
-      let receipt: SaleReceipt;
-
-      if (isOnline) {
-        receipt = await apiFetch('/sales/checkout', {
-          method: 'POST',
-          body: JSON.stringify(checkoutPayload),
-        });
-      } else {
-        // Queue locally in IndexedDB when offline
-        const queuedItem = await queueOfflineSale(checkoutPayload);
-        receipt = {
+      const queueLocally = async (): Promise<SaleReceipt> => {
+        const queuedItem = await queueOfflineSale({ ...checkoutPayload, isOfflineSync: true });
+        return {
           id: queuedItem.id,
           receiptNumber: queuedItem.id,
           totalAmount: netTotal,
           tax: taxAmount,
           discount: orderDiscount,
           isOfflineSync: true,
-          createdAt: new Date().toISOString(),
-          user: { name: 'Offline Cashier', email: 'cashier@sellkitpos.com' },
+          createdAt: checkoutPayload.soldAt,
+          user: { name: cashier?.name ?? 'Cashier', email: cashier?.email ?? '' },
           customer: customer || undefined,
-          saleItems: cart.map((i, idx) => ({
-            id: `item-${idx}`,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            totalPrice: i.unitPrice * i.quantity,
-            productVariant: i.variant,
-          })),
+          // What the customer was actually charged per unit, after line discount,
+          // so the paper receipt adds up to the total they paid.
+          saleItems: cart.map((i, idx) => {
+            const charged = i.unitPrice * (1 - (i.discount || 0) / 100);
+            return {
+              id: `item-${idx}`,
+              quantity: i.quantity,
+              unitPrice: charged,
+              totalPrice: charged * i.quantity,
+              productVariant: i.variant,
+            };
+          }),
           paymentSplits: splits.map((s, idx) => ({
             id: `split-${idx}`,
             paymentMethod: s.paymentMethod,
             amount: s.amount,
           })),
         };
+      };
+
+      let receipt: SaleReceipt;
+
+      if (isOnline) {
+        try {
+          receipt = await apiFetch('/sales/checkout', {
+            method: 'POST',
+            body: JSON.stringify({ ...checkoutPayload, isOfflineSync: false }),
+            timeoutMs: CHECKOUT_TIMEOUT_MS,
+          });
+        } catch (err) {
+          // The device thinks it is online but the server is down, slow or
+          // erroring. The sale must still go through: queue it. If the POST in
+          // fact landed, the shared clientSaleId makes the replay a no-op.
+          if (err instanceof ApiError && err.isRetryable) {
+            console.warn('Checkout could not reach the server; queued for sync.', err);
+            receipt = await queueLocally();
+          } else {
+            const code = err instanceof ApiError ? (err.payload as { code?: string } | undefined)?.code : undefined;
+            if (code && STALE_CATALOG_CODES.has(code)) onCatalogStale?.();
+            throw err;
+          }
+        }
+      } else {
+        receipt = await queueLocally();
       }
 
       // Trigger Confetti effect!

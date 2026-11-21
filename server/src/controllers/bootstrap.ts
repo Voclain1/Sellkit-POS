@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { prisma } from '../prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { DEFAULT_IDS } from '../lib/defaults';
+import { TAX_RATE } from '../lib/config';
+import { shiftSalesWhere } from '../lib/shiftSales';
 
 /**
  * GET /api/bootstrap
@@ -78,7 +80,7 @@ export const getBootstrap = async (req: AuthenticatedRequest, res: Response): Pr
       const cashSales = await prisma.paymentSplit.aggregate({
         where: {
           paymentMethod: 'CASH',
-          sale: { tillId: till.id, createdAt: { gte: shift.openedAt } },
+          sale: shiftSalesWhere(shift),
         },
         _sum: { amount: true },
       });
@@ -97,7 +99,7 @@ export const getBootstrap = async (req: AuthenticatedRequest, res: Response): Pr
       shift,
       liveTotals,
       user: req.user ?? null,
-      taxRate: 0.08,
+      taxRate: TAX_RATE,
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to bootstrap terminal', details: error.message });

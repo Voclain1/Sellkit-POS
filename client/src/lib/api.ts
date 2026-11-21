@@ -96,9 +96,21 @@ export class ApiError extends Error {
     this.payload = payload;
   }
 
-  /** True for transport failures and 5xx — worth retrying once we are back online. */
+  /**
+   * True for transport failures, timeouts, rate limiting and 5xx — worth
+   * retrying later. Everything else in 4xx means this exact request will be
+   * rejected again.
+   */
   get isRetryable(): boolean {
-    return this.status === 0 || this.status >= 500;
+    return this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500;
+  }
+
+  /**
+   * The session expired or was revoked. Not the request's fault: the same
+   * request succeeds once someone signs in again.
+   */
+  get isAuthError(): boolean {
+    return this.status === 401;
   }
 }
 
@@ -114,24 +126,50 @@ export const clearAuthToken = (): void => {
   localStorage.removeItem('sellkit_token');
 };
 
-export const apiFetch = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
+export interface ApiFetchOptions extends RequestInit {
+  /**
+   * Abort after this many milliseconds and throw a retryable ApiError (status 0).
+   * A request on a flaky connection can otherwise hang for minutes, which at a
+   * till means a cashier staring at "Processing..." with a queue forming.
+   */
+  timeoutMs?: number;
+}
+
+export const apiFetch = async (endpoint: string, options: ApiFetchOptions = {}): Promise<any> => {
+  const { timeoutMs, ...init } = options;
   const token = getAuthToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
+    ...(init.headers as Record<string, string>),
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...init,
+      headers,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
   } catch (err) {
-    // Network-level failure (offline, DNS, connection refused): status 0, retryable.
-    throw new ApiError(err instanceof Error ? err.message : 'Network request failed', 0);
+    // Network-level failure (offline, DNS, connection refused, our own timeout):
+    // status 0, retryable.
+    const timedOut = controller?.signal.aborted;
+    throw new ApiError(
+      timedOut
+        ? `Request timed out after ${Math.round((timeoutMs ?? 0) / 1000)}s`
+        : err instanceof Error ? err.message : 'Network request failed',
+      0
+    );
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const data = await response.json().catch(() => ({}));

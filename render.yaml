@@ -16,7 +16,7 @@ services:
     plan: free
     rootDir: server
 
-    # Three things happen here, and all three are load-bearing:
+    # Four things happen here, and all four are load-bearing:
     #
     #   --include=dev  Render sets NODE_ENV=production, and npm then skips
     #                  devDependencies. typescript and the prisma CLI both live
@@ -28,8 +28,15 @@ services:
     #                  node_modules between builds and postinstall does not re-run
     #                  on a cache hit -- which yields a stale client after a schema
     #                  change. Generating explicitly is idempotent and cheap.
+    #   prisma:deploy  `prisma migrate deploy`: applies any migration not yet in
+    #                  the database's _prisma_migrations table, and is a no-op
+    #                  otherwise. It runs before the new code goes live, so the
+    #                  server never starts against a schema it does not match.
+    #                  If it fails, the build fails and Render keeps serving the
+    #                  previous deploy. Migrations must therefore stay
+    #                  backward-compatible with the code already running.
     #   build          tsc -> dist/
-    buildCommand: npm install --include=dev && npm run prisma:generate && npm run build
+    buildCommand: npm install --include=dev && npm run prisma:generate && npm run prisma:deploy && npm run build
 
     startCommand: npm run start
     autoDeploy: true
@@ -57,12 +64,11 @@ services:
 # every stored PIN stops verifying (see server/src/lib/pin.ts). Carry the
 # existing value across; do not generate a fresh one for this service.
 #
-# Migrations are NOT run on deploy. `npm run prisma:deploy` (prisma migrate
-# deploy) could be appended to buildCommand -- the database already has a
-# _prisma_migrations table with the init migration applied, so it would be a
-# safe no-op today and would ship future schema changes automatically. It is
-# left out because applying migrations to production on every push is a call
-# for a human to make, not a default to inherit.
+# Migrations ARE run on deploy (see buildCommand). This was switched on with the
+# sale-integrity migration, which the API cannot run without. The database is
+# Neon: if `migrate deploy` ever fails over the pooled DATABASE_URL, add a
+# DIRECT_URL (the non-pooled connection string) and `directUrl = env("DIRECT_URL")`
+# to schema.prisma's datasource.
 #
 # The database is a Neon instance in eu-central-1. Render's default region is
 # Oregon, which puts a transatlantic round trip on every query. Adding

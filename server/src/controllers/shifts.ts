@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { shiftSalesWhere } from '../lib/shiftSales';
 
 // Open Shift Endpoint (/api/shifts/open)
 export const openShift = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -78,12 +79,7 @@ export const closeShift = async (req: AuthenticatedRequest, res: Response): Prom
     const cashSales = await prisma.paymentSplit.aggregate({
       where: {
         paymentMethod: 'CASH',
-        sale: {
-          tillId: shift.tillId,
-          createdAt: {
-            gte: shift.openedAt,
-          },
-        },
+        sale: shiftSalesWhere(shift),
       },
       _sum: {
         amount: true,
@@ -153,12 +149,7 @@ export const getCurrentShift = async (req: AuthenticatedRequest, res: Response):
     const cashSales = await prisma.paymentSplit.aggregate({
       where: {
         paymentMethod: 'CASH',
-        sale: {
-          tillId: activeShift.tillId,
-          createdAt: {
-            gte: activeShift.openedAt,
-          },
-        },
+        sale: shiftSalesWhere(activeShift),
       },
       _sum: {
         amount: true,
@@ -205,13 +196,7 @@ export const getShiftSummary = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    const saleWindow = {
-      tillId: shift.tillId,
-      createdAt: {
-        gte: shift.openedAt,
-        ...(shift.closedAt ? { lte: shift.closedAt } : {}),
-      },
-    };
+    const saleWindow = shiftSalesWhere(shift);
 
     const [saleTotals, splitTotals] = await Promise.all([
       prisma.sale.aggregate({

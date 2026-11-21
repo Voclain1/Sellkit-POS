@@ -108,6 +108,7 @@ export function App() {
     lastSyncError,
     lastSyncedCount,
     refreshQueue,
+    syncNow,
     retryFailedSync,
   } = useOnlineStatus();
 
@@ -395,6 +396,8 @@ export function App() {
     setView(landing === 'admin' && canAccessAdmin(user) ? 'admin' : 'pos');
     setIsPinModalOpen(false);
     await Promise.all([fetchSession(), fetchCatalogData(), fetchCustomers()]);
+    // Sales queued while the session was expired are waiting on this sign-in.
+    void syncNow();
   };
 
   const handleLogout = () => {
@@ -591,6 +594,9 @@ export function App() {
         taxRate={session?.taxRate}
         modifiers={modifiers}
         isOnline={isOnline}
+        shiftId={currentShift?.id}
+        cashier={currentUser}
+        onCatalogStale={fetchCatalogData}
         onClose={() => setIsCheckoutModalOpen(false)}
         onSuccess={handleCheckoutSuccess}
       />
