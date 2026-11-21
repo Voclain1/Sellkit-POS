@@ -43,7 +43,9 @@ const MODES: {
  */
 function describeLoginError(e: unknown, afterAuth: boolean): string {
   if (e instanceof ApiError && e.status === 0) {
-    return 'Cannot reach the server. Check that the API is running, then try again.';
+    return navigator.onLine
+      ? 'Cannot reach the server. Check that the API is running, then try again.'
+      : 'This device is offline. Signing in needs a connection; tills that were already signed in keep selling offline.';
   }
   if (!afterAuth && e instanceof ApiError && e.status === 401) {
     return 'Incorrect PIN. Try again.';

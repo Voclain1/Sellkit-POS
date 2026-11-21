@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UserCheck, Search, X, Loader2, UserX } from 'lucide-react';
 import { Header } from './components/pos/Header';
 import { ProductGrid } from './components/pos/ProductGrid';
@@ -14,7 +14,8 @@ import type { LoginLanding } from './components/auth/PinModal';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { SyncStatusToast } from './components/common/SyncStatusToast';
 import { PwaUpdatePrompt } from './components/common/PwaUpdatePrompt';
-import { apiFetch, getAuthToken, clearAuthToken } from './lib/api';
+import { apiFetch, ApiError, getAuthToken, clearAuthToken } from './lib/api';
+import { clearTerminalContext, loadTerminalContext, saveTerminalContext } from './lib/offline/terminal';
 import { canAccessAdmin } from './lib/roles';
 import { useOnlineStatus } from './lib/offline/sync';
 import {
@@ -46,6 +47,10 @@ export function App() {
   const [currentShift, setCurrentShift] = useState<TillShift | null>(null);
   const [session, setSession] = useState<BootstrapData | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(true);
+  // False until the boot check below settles. Until then the empty initial state
+  // is "not loaded yet", not "signed out", and must not overwrite the saved
+  // terminal context.
+  const [isBooted, setIsBooted] = useState<boolean>(false);
   /**
    * Which half of the app is on screen. The back office replaces the till rather
    * than opening over it: an admin reviewing stock is not mid-sale, and leaving a
@@ -168,6 +173,17 @@ export function App() {
       return data;
     } catch (err) {
       console.error('Failed to bootstrap terminal:', err);
+      // Server unreachable or erroring: keep selling on the last known context
+      // rather than leave the till with no outlet or till to post against. A
+      // session already in memory (a mid-shift refresh) is left as it is.
+      if (err instanceof ApiError && err.isRetryable) {
+        const cached = loadTerminalContext();
+        if (cached) {
+          setSession((prev) => prev ?? cached.session);
+          setCurrentShift((prev) => prev ?? cached.session.shift);
+          return cached.session;
+        }
+      }
       return null;
     }
   }, []);
@@ -185,11 +201,25 @@ export function App() {
     }
   }, []);
 
+  // Back online: replace whatever was restored from the device with the
+  // server's current view (the shift may have been closed from another till,
+  // prices may have changed while this one was cut off).
+  const wasOnline = useRef(isOnline);
+  useEffect(() => {
+    const cameBack = isOnline && !wasOnline.current;
+    wasOnline.current = isOnline;
+    if (cameBack && currentUser) {
+      void fetchSession();
+      void fetchCatalogData();
+    }
+  }, [isOnline, currentUser, fetchSession, fetchCatalogData]);
+
   // Initial Auth Check
   useEffect(() => {
     const token = getAuthToken();
     if (!token) {
       setIsPinModalOpen(true);
+      setIsBooted(true);
       return;
     }
 
@@ -197,13 +227,49 @@ export function App() {
       .then(async (user: User) => {
         setCurrentUser(user);
         setIsPinModalOpen(false);
+        setIsBooted(true);
         await Promise.all([fetchSession(), fetchCatalogData(), fetchCustomers()]);
       })
-      .catch(() => {
+      .catch(async (err: unknown) => {
+        // Only the server saying "this token is no good" signs the cashier out.
+        // A network failure used to land here too: it deleted the token and
+        // showed the PIN screen, and PIN login needs the server, so an offline
+        // reload locked the till until the connection came back.
+        if (err instanceof ApiError && err.isRetryable) {
+          const cached = loadTerminalContext();
+          if (cached) {
+            setCurrentUser(cached.user);
+            setSession(cached.session);
+            setCurrentShift(cached.session.shift);
+            setIsPinModalOpen(false);
+            setIsBooted(true);
+            await fetchCatalogData(); // falls back to the IndexedDB catalogue
+            return;
+          }
+          // Nothing saved to restore from. Keep the token: it may still be good
+          // once the server is back.
+          setIsPinModalOpen(true);
+          setIsBooted(true);
+          return;
+        }
+
         clearAuthToken();
+        clearTerminalContext();
         setIsPinModalOpen(true);
+        setIsBooted(true);
       });
   }, [fetchSession, fetchCatalogData, fetchCustomers]);
+
+  // Keep the saved context in step with the live one: sign-in, bootstrap, shift
+  // opened or closed. Signed out means there is nothing to restore.
+  useEffect(() => {
+    if (!isBooted) return;
+    if (currentUser && session) {
+      saveTerminalContext(currentUser, { ...session, shift: currentShift });
+    } else if (!currentUser) {
+      clearTerminalContext();
+    }
+  }, [isBooted, currentUser, session, currentShift]);
 
   // Debounced customer search while the picker is open.
   useEffect(() => {
@@ -402,6 +468,7 @@ export function App() {
 
   const handleLogout = () => {
     clearAuthToken();
+    clearTerminalContext();
     setCurrentUser(null);
     setCurrentShift(null);
     setSession(null);
