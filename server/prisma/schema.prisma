@@ -21,14 +21,20 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  pin       String?
-  name      String
-  role      Role     @default(CASHIER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  pin          String?
+  name         String
+  role         Role      @default(CASHIER)
+  /// Bumped to sign this user out everywhere: every token carries the version
+  /// it was issued with, and a mismatch is rejected.
+  tokenVersion Int       @default(0)
+  /// Set to stop this user signing in at all (a leaver). Existing tokens stop
+  /// working too.
+  disabledAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
   sales               Sale[]

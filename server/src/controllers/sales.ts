@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { Prisma, PaymentMethod } from '@prisma/client';
 import { prisma } from '../prisma';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { HttpError, prismaErrorCode } from '../lib/httpError';
 import { TAX_RATE } from '../lib/config';
@@ -421,12 +422,17 @@ export const getSales = async (req: AuthenticatedRequest, res: Response): Promis
     const tillId = typeof req.query.tillId === 'string' ? req.query.tillId : undefined;
     const customerId = typeof req.query.customerId === 'string' ? req.query.customerId : undefined;
     const isOfflineSync = req.query.isOfflineSync !== undefined ? req.query.isOfflineSync === 'true' : undefined;
+    const needsReview = req.query.needsReview !== undefined ? req.query.needsReview === 'true' : undefined;
+    const cursor = typeof req.query.cursor === 'string' && req.query.cursor ? req.query.cursor : undefined;
+    const takeRaw = typeof req.query.take === 'string' ? parseInt(req.query.take, 10) : NaN;
+    const take = Number.isFinite(takeRaw) ? Math.min(Math.max(takeRaw, 1), 100) : 50;
 
     const where: Prisma.SaleWhereInput = {};
     if (outletId) where.outletId = outletId;
     if (tillId) where.tillId = tillId;
     if (customerId) where.customerId = customerId;
     if (isOfflineSync !== undefined) where.isOfflineSync = isOfflineSync;
+    if (needsReview !== undefined) where.needsReview = needsReview;
 
     const sales = await prisma.sale.findMany({
       where,
@@ -442,13 +448,18 @@ export const getSales = async (req: AuthenticatedRequest, res: Response): Promis
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+      // id breaks ties so the cursor is stable when two sales share a timestamp.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
-    res.json(sales);
+    // One extra row tells us whether there is a next page without a count query.
+    const hasMore = sales.length > take;
+    const page = hasMore ? sales.slice(0, take) : sales;
+    res.json({ sales: page, nextCursor: hasMore ? page[page.length - 1].id : null });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch sales', details: error.message });
+    handleError(res, error, 'Failed to fetch sales');
   }
 };
 
@@ -475,13 +486,16 @@ export const getSaleById = async (req: AuthenticatedRequest, res: Response): Pro
       },
     });
 
-    if (!sale) {
+    // Cashiers may reopen their own receipts only. 404 rather than 403, so the
+    // endpoint does not confirm which sale ids exist.
+    const isBackOffice = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
+    if (!sale || (!isBackOffice && sale.userId !== req.user?.userId)) {
       res.status(404).json({ error: 'Sale receipt not found' });
       return;
     }
 
     res.json(sale);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch sale receipt', details: error.message });
+    handleError(res, error, 'Failed to fetch sale receipt');
   }
 };

@@ -1,6 +1,9 @@
 import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
+import { z } from 'zod';
+import { id, money, parseBody } from '../lib/validate';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 
 // List all products with category and variants
@@ -34,7 +37,7 @@ export const getProducts = async (req: AuthenticatedRequest, res: Response): Pro
 
     res.json(products);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch products', details: error.message });
+    handleError(res, error, 'Failed to fetch products');
   }
 };
 
@@ -58,19 +61,43 @@ export const getProductById = async (req: AuthenticatedRequest, res: Response): 
 
     res.json(product);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch product', details: error.message });
+    handleError(res, error, 'Failed to fetch product');
   }
 };
+
+const stockCount = z.coerce.number().int('must be a whole number').nonnegative('cannot be negative');
+
+const variantInput = z.object({
+  name: z.string().trim().max(100).optional(),
+  sku: z.string().trim().max(100).optional(),
+  barcode: z.string().trim().max(100).optional().nullable(),
+  price: money.default(0),
+  cost: money.default(0),
+  stockQuantity: stockCount.default(0),
+});
+
+const createProductSchema = z.object({
+  categoryId: id,
+  name: z.string().trim().min(1, 'Product name is required').max(200),
+  description: z.string().trim().max(2000).optional(),
+  variants: z.array(variantInput).max(100).optional(),
+  // Single-variant shorthand, used when `variants` is omitted.
+  price: money.default(0),
+  cost: money.default(0),
+  stockQuantity: stockCount.default(0),
+});
+
+const updateProductSchema = z.object({
+  categoryId: id.optional(),
+  name: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(2000).nullable().optional(),
+});
 
 // Create product with optional variants
 export const createProduct = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { categoryId, name, description, variants } = req.body;
-
-    if (!categoryId || !name) {
-      res.status(400).json({ error: 'Category ID and Product name are required' });
-      return;
-    }
+    const body = parseBody(createProductSchema, req.body);
+    const { categoryId, name, description, variants } = body;
 
     // An unknown id is a stale form or a typo. Inventing a category named after
     // the id (the old behaviour) filled the catalogue with junk categories.
@@ -86,21 +113,21 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response): P
         name,
         description,
         variants: {
-          create: Array.isArray(variants) && variants.length > 0 ? variants.map((v: any) => ({
+          create: variants && variants.length > 0 ? variants.map((v) => ({
             name: v.name || 'Standard',
             sku: v.sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             barcode: v.barcode || null,
-            price: v.price || 0,
-            cost: v.cost || 0,
-            stockQuantity: v.stockQuantity || 0,
+            price: v.price,
+            cost: v.cost,
+            stockQuantity: v.stockQuantity,
           })) : [
             {
               name: 'Standard',
               sku: `SKU-${Date.now()}`,
               barcode: null,
-              price: req.body.price || 0,
-              cost: req.body.cost || 0,
-              stockQuantity: req.body.stockQuantity || 0,
+              price: body.price,
+              cost: body.cost,
+              stockQuantity: body.stockQuantity,
             }
           ],
         },
@@ -120,7 +147,7 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response): P
       res.status(409).json({ error: `Another variant already uses that ${target}` });
       return;
     }
-    res.status(500).json({ error: 'Failed to create product', details: error.message });
+    handleError(res, error, 'Failed to create product');
   }
 };
 
@@ -128,7 +155,7 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response): P
 export const updateProduct = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { categoryId, name, description } = req.body;
+    const { categoryId, name, description } = parseBody(updateProductSchema, req.body);
 
     const existingProduct = await prisma.product.findUnique({ where: { id } });
     if (!existingProduct) {
@@ -136,10 +163,15 @@ export const updateProduct = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
+    if (categoryId && !(await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } }))) {
+      res.status(400).json({ error: 'Category not found. Pick an existing category.' });
+      return;
+    }
+
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
-        categoryId: categoryId ? (categoryId as string) : existingProduct.categoryId,
+        categoryId: categoryId ?? existingProduct.categoryId,
         name: name || existingProduct.name,
         description: description !== undefined ? description : existingProduct.description,
       },
@@ -151,7 +183,7 @@ export const updateProduct = async (req: AuthenticatedRequest, res: Response): P
 
     res.json(updatedProduct);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to update product', details: error.message });
+    handleError(res, error, 'Failed to update product');
   }
 };
 
@@ -189,7 +221,7 @@ export const deleteProduct = async (req: AuthenticatedRequest, res: Response): P
 
     res.json({ message: 'Product deleted successfully', archived: false });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to delete product', details: error.message });
+    handleError(res, error, 'Failed to delete product');
   }
 };
 
@@ -228,7 +260,7 @@ export const searchProducts = async (req: AuthenticatedRequest, res: Response): 
 
     res.json(variants);
   } catch (error: any) {
-    res.status(500).json({ error: 'Product search failed', details: error.message });
+    handleError(res, error, 'Product search failed');
   }
 };
 
@@ -263,7 +295,7 @@ export const getLowStockProducts = async (req: AuthenticatedRequest, res: Respon
       variants: lowStockVariants,
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch low stock alerts', details: error.message });
+    handleError(res, error, 'Failed to fetch low stock alerts');
   }
 };
 
@@ -273,7 +305,7 @@ export const getCategories = async (_req: AuthenticatedRequest, res: Response): 
     const categories = await prisma.category.findMany({ orderBy: { name: 'asc' } });
     res.json(categories);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
+    handleError(res, error, 'Failed to fetch categories');
   }
 };
 
@@ -328,7 +360,7 @@ export const updateVariantStock = async (req: AuthenticatedRequest, res: Respons
 
     res.json(variant);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to update stock', details: error.message });
+    handleError(res, error, 'Failed to update stock');
   }
 };
 
@@ -379,6 +411,6 @@ export const updateVariant = async (req: AuthenticatedRequest, res: Response): P
       res.status(409).json({ error: `Another variant already uses that ${target}` });
       return;
     }
-    res.status(500).json({ error: 'Failed to update variant', details: error.message });
+    handleError(res, error, 'Failed to update variant');
   }
 };

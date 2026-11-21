@@ -1,6 +1,9 @@
 import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
+import { z } from 'zod';
+import { parseBody } from '../lib/validate';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 
 /**
@@ -33,7 +36,7 @@ export const getCustomers = async (req: AuthenticatedRequest, res: Response): Pr
 
     res.json(customers);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch customers', details: error.message });
+    handleError(res, error, 'Failed to fetch customers');
   }
 };
 
@@ -60,22 +63,30 @@ export const getCustomerById = async (req: AuthenticatedRequest, res: Response):
 
     res.json(customer);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch customer', details: error.message });
+    handleError(res, error, 'Failed to fetch customer');
   }
 };
+
+const createCustomerSchema = z.object({
+  name: z.string().trim().min(1, 'Customer name is required').max(100),
+  phone: z.string().trim().max(30).optional().or(z.literal('').transform(() => undefined)),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Enter a valid email')
+    .max(200)
+    .optional()
+    .or(z.literal('').transform(() => undefined)),
+});
 
 // Create a customer from the till (cashiers enrol walk-ins at checkout).
 export const createCustomer = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { name, phone, email } = req.body;
+    const { name, phone, email } = parseBody(createCustomerSchema, req.body);
 
-    if (!name || !String(name).trim()) {
-      res.status(400).json({ error: 'Customer name is required' });
-      return;
-    }
-
-    const normalisedPhone = phone ? String(phone).trim() : null;
-    const normalisedEmail = email ? String(email).toLowerCase().trim() : null;
+    const normalisedPhone = phone || null;
+    const normalisedEmail = email || null;
 
     // phone and email are unique; report the clash rather than a raw Prisma error.
     if (normalisedPhone || normalisedEmail) {
@@ -96,7 +107,7 @@ export const createCustomer = async (req: AuthenticatedRequest, res: Response): 
 
     const customer = await prisma.customer.create({
       data: {
-        name: String(name).trim(),
+        name,
         phone: normalisedPhone,
         email: normalisedEmail,
       },
@@ -104,6 +115,6 @@ export const createCustomer = async (req: AuthenticatedRequest, res: Response): 
 
     res.status(201).json(customer);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to create customer', details: error.message });
+    handleError(res, error, 'Failed to create customer');
   }
 };

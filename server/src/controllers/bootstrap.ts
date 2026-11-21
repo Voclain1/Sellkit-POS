@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { prisma } from '../prisma';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { DEFAULT_IDS } from '../lib/defaults';
 import { TAX_RATE } from '../lib/config';
@@ -102,6 +103,6 @@ export const getBootstrap = async (req: AuthenticatedRequest, res: Response): Pr
       taxRate: TAX_RATE,
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to bootstrap terminal', details: error.message });
+    handleError(res, error, 'Failed to bootstrap terminal');
   }
 };

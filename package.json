@@ -28,6 +28,7 @@
     "db:push": "npm --prefix server run prisma:push",
     "db:seed": "npm --prefix server run seed",
     "db:studio": "npm --prefix server run prisma:studio",
+    "users": "npm --prefix server run users --",
 
     "install:all": "npm install && npm --prefix client install && npm --prefix server install",
     "clean": "rimraf client/dist server/dist client/dev-dist"

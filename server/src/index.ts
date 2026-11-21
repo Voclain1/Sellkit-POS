@@ -4,15 +4,34 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import apiRouter from './routes';
+import { corsOriginMatcher, trustProxy } from './lib/env';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Behind Render's proxy: makes req.ip the client, which the login limiter keys on.
+app.set('trust proxy', trustProxy());
+app.disable('x-powered-by');
+
+// Security headers. The API serves JSON only, so the default CSP costs nothing.
+app.use(helmet());
+
+// Only the till's own origins may call the API from a browser. Requests with no
+// Origin (curl, health checks, server-to-server) are not browser requests and
+// pass through; auth still applies to them.
+const isAllowedOrigin = corsOriginMatcher();
+app.use(
+  cors({
+    origin: (origin, callback) => callback(null, !origin || isAllowedOrigin(origin)),
+    maxAge: 600,
+  })
+);
+
+// A checkout is a few KB; nothing legitimate comes close to this.
+app.use(express.json({ limit: '200kb' }));
+app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 
 // Mount API Router
 app.use('/api', apiRouter);

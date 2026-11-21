@@ -1,17 +1,37 @@
 import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
+import { z } from 'zod';
+import { id, money, parseBody } from '../lib/validate';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { shiftSalesWhere } from '../lib/shiftSales';
+
+const openShiftSchema = z.object({
+  tillId: id,
+  openingFloat: money,
+});
+
+const closeShiftSchema = z.object({
+  shiftId: id,
+  actualCash: money,
+  notes: z.string().trim().max(500).optional(),
+});
 
 // Open Shift Endpoint (/api/shifts/open)
 export const openShift = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { tillId, openingFloat } = req.body;
+    const { tillId, openingFloat } = parseBody(openShiftSchema, req.body);
 
-    if (!userId || !tillId || openingFloat === undefined) {
-      res.status(400).json({ error: 'User ID, Till ID, and Opening Float amount are required' });
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const till = await prisma.till.findUnique({ where: { id: tillId }, select: { id: true } });
+    if (!till) {
+      res.status(400).json({ error: 'Till not found' });
       return;
     }
 
@@ -35,7 +55,7 @@ export const openShift = async (req: AuthenticatedRequest, res: Response): Promi
       data: {
         tillId,
         userId,
-        openingFloat: Number(openingFloat),
+        openingFloat,
         openedAt: new Date(),
       },
       include: {
@@ -46,7 +66,7 @@ export const openShift = async (req: AuthenticatedRequest, res: Response): Promi
 
     res.status(201).json(shift);
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to open shift', details: error.message });
+    handleError(res, error, 'Failed to open shift');
   }
 };
 
@@ -54,12 +74,7 @@ export const openShift = async (req: AuthenticatedRequest, res: Response): Promi
 export const closeShift = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { shiftId, actualCash, notes } = req.body;
-
-    if (!shiftId || actualCash === undefined) {
-      res.status(400).json({ error: 'Shift ID and actual cash amount are required' });
-      return;
-    }
+    const { shiftId, actualCash, notes } = parseBody(closeShiftSchema, req.body);
 
     const shift = await prisma.tillReconciliation.findUnique({
       where: { id: shiftId },
@@ -88,7 +103,7 @@ export const closeShift = async (req: AuthenticatedRequest, res: Response): Prom
 
     const totalCashFromSales = Number(cashSales._sum.amount || 0);
     const expectedCash = Number(shift.openingFloat) + totalCashFromSales;
-    const numericActualCash = Number(actualCash);
+    const numericActualCash = actualCash;
     const discrepancy = numericActualCash - expectedCash;
 
     const updatedShift = await prisma.tillReconciliation.update({
@@ -118,7 +133,7 @@ export const closeShift = async (req: AuthenticatedRequest, res: Response): Prom
       shift: updatedShift,
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to close shift', details: error.message });
+    handleError(res, error, 'Failed to close shift');
   }
 };
 
@@ -168,7 +183,7 @@ export const getCurrentShift = async (req: AuthenticatedRequest, res: Response):
       },
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to fetch active shift', details: error.message });
+    handleError(res, error, 'Failed to fetch active shift');
   }
 };
 
@@ -246,6 +261,6 @@ export const getShiftSummary = async (req: AuthenticatedRequest, res: Response):
       discrepancy,
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to build shift summary', details: error.message });
+    handleError(res, error, 'Failed to build shift summary');
   }
 };

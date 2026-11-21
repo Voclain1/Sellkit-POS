@@ -22,11 +22,12 @@ router.get('/health', async (_req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
+    // The detail goes to the log, not the response: this endpoint is public.
+    console.error('Health check failed:', error);
     res.status(500).json({
       status: 'error',
       service: 'Sellkit POS API Server',
       database: 'disconnected',
-      error: error.message,
       timestamp: new Date().toISOString(),
     });
   }

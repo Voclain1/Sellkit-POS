@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { prisma } from '../prisma';
+import { handleError } from '../lib/respond';
 import { AuthenticatedRequest } from '../middleware/auth';
 
 /** Windows the back office can ask for. Anything else is rejected, not guessed at. */
@@ -148,6 +149,6 @@ export const getDashboard = async (req: AuthenticatedRequest, res: Response): Pr
       topProducts,
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to build analytics dashboard', details: error.message });
+    handleError(res, error, 'Failed to build analytics dashboard');
   }
 };

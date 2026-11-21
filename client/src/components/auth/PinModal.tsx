@@ -38,6 +38,13 @@ const MODES: {
 ];
 
 /**
+ * The seeded demo PINs, printed under the keypad. Only in dev builds, or a
+ * deployment that opts in for demos: on a live till they are the admin's
+ * actual PIN, shown to anyone who opens the page.
+ */
+const SHOW_DEMO_PINS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO_PINS === 'true';
+
+/**
  * A dead API and a wrong PIN are different problems. Reporting both as
  * "Invalid PIN" sends the cashier hunting for a credential that was never wrong.
  */
@@ -189,7 +196,9 @@ export function PinModal({ isOpen, onSuccess }: Props) {
               className="btn-primary w-full py-3.5 text-sm">
               {loading ? 'Authenticating…' : 'Unlock Terminal'}<ArrowRight className="w-5 h-5" />
             </button>
-            <p className="mt-3 text-center micro-label">Demo PIN <span className="num tracking-normal">{active.demoPin}</span></p>
+            {SHOW_DEMO_PINS && (
+              <p className="mt-3 text-center micro-label">Demo PIN <span className="num tracking-normal">{active.demoPin}</span></p>
+            )}
           </>
         ) : (
           <OpenShiftModal

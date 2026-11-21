@@ -122,6 +122,14 @@ rather than being invoked directly from the root.
 
 ## Secrets
 `.env` is git-ignored; `.env.example` is committed and is the source of truth for which
-variables exist. `server/src/middleware/auth.ts` currently falls back to a hardcoded
-`JWT_SECRET` when the env var is unset — set it everywhere and remove that fallback
-before any deployment.
+variables exist. `server/src/lib/env.ts` validates the security settings at startup:
+the server refuses to start without a `JWT_SECRET` of 32+ characters (there is no
+fallback), and `CORS_ORIGINS` / `TRUST_PROXY` must be set for production.
+
+### Staff accounts
+- `npm run users -- <list|set-pin|set-password|revoke|disable|enable> [email]` manages
+  accounts until the back office has a screen for it. Secrets are read from stdin.
+- Every JWT carries the user's `tokenVersion`; bumping it (`revoke`, any PIN/password
+  change, `disable`) signs that user out everywhere within 30s.
+- The seed's demo credentials (`admin123`, PINs `4321` / `1234`) are dev-only: the seed
+  refuses `NODE_ENV=production`, and the keypad shows demo PINs only in dev builds.

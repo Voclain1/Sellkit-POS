@@ -98,6 +98,15 @@ async function retireLegacyDuplicates(): Promise<void> {
 }
 
 async function seed() {
+  // The seed creates accounts with published credentials (admin123, PINs 4321
+  // and 1234). Run against a live database, that is a back door.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== '1') {
+    throw new Error(
+      'Refusing to seed demo accounts with NODE_ENV=production. ' +
+        'Set ALLOW_DEMO_SEED=1 to override, then change every seeded PIN and password with `npm run users`.'
+    );
+  }
+
   console.log('🌱 Seeding database...');
 
   await retireLegacyDuplicates();
