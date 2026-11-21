@@ -68,6 +68,14 @@ export function SyncStatusToast({
     icon = <CheckCircle2 className="w-4 h-4 shrink-0 text-success" />;
     title = `${lastSyncedCount} ${plural(lastSyncedCount)} synced`;
     detail = 'All offline sales are up to date on the server.';
+  } else if (syncPhase === 'error' && lastSyncError && isOnline) {
+    // Still pending, but the last pass could not deliver them: an expired
+    // session or a server outage. Say why, or the cashier just sees a queue
+    // that never moves.
+    tone = 'error';
+    icon = <AlertTriangle className="w-4 h-4 shrink-0 text-danger" />;
+    title = `${pendingSyncCount} ${plural(pendingSyncCount)} waiting to sync`;
+    detail = lastSyncError;
   } else if (isOnline) {
     tone = 'progress';
     icon = <RefreshCw className="w-4 h-4 shrink-0 text-brand" />;

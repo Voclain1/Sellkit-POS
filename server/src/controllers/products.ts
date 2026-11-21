@@ -9,7 +9,8 @@ export const getProducts = async (req: AuthenticatedRequest, res: Response): Pro
     const categoryId = typeof req.query.categoryId === 'string' ? req.query.categoryId : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
 
-    const whereClause: Prisma.ProductWhereInput = {};
+    // Archived products are kept for their sale history but are not for sale.
+    const whereClause: Prisma.ProductWhereInput = { archivedAt: null };
     if (categoryId) {
       whereClause.categoryId = categoryId;
     }
@@ -71,14 +72,12 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    // Ensure category exists or auto-create if missing
-    let category = await prisma.category.findUnique({ where: { id: categoryId as string } });
+    // An unknown id is a stale form or a typo. Inventing a category named after
+    // the id (the old behaviour) filled the catalogue with junk categories.
+    const category = await prisma.category.findUnique({ where: { id: String(categoryId) } });
     if (!category) {
-      category = await prisma.category.create({
-        data: { id: categoryId as string, name: categoryId as string },
-      }).catch(async () => {
-        return (await prisma.category.findFirst()) || await prisma.category.create({ data: { name: 'General' } });
-      });
+      res.status(400).json({ error: 'Category not found. Pick an existing category.' });
+      return;
     }
 
     const product = await prisma.product.create({
@@ -156,16 +155,39 @@ export const updateProduct = async (req: AuthenticatedRequest, res: Response): P
   }
 };
 
-// Delete product
+/**
+ * Remove a product (DELETE /api/products/:id).
+ *
+ * A product that has ever been sold is archived, not deleted: its sale lines
+ * reference the variants, and deleting them would either fail on the foreign
+ * key or rewrite history. One that was never sold is deleted outright.
+ */
 export const deleteProduct = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
 
-    // Delete variants first, then product
-    await prisma.productVariant.deleteMany({ where: { productId: id } });
-    await prisma.product.delete({ where: { id } });
+    const product = await prisma.product.findUnique({ where: { id }, select: { id: true, archivedAt: true } });
+    if (!product) {
+      res.status(404).json({ error: 'Product not found' });
+      return;
+    }
 
-    res.json({ message: 'Product deleted successfully' });
+    const soldLines = await prisma.saleItem.count({ where: { productVariant: { productId: id } } });
+
+    if (soldLines > 0) {
+      if (!product.archivedAt) {
+        await prisma.product.update({ where: { id }, data: { archivedAt: new Date() } });
+      }
+      res.json({ message: 'Product archived. It has sales history, so it was kept for reporting.', archived: true });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.productVariant.deleteMany({ where: { productId: id } }),
+      prisma.product.delete({ where: { id } }),
+    ]);
+
+    res.json({ message: 'Product deleted successfully', archived: false });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to delete product', details: error.message });
   }
@@ -193,6 +215,7 @@ export const searchProducts = async (req: AuthenticatedRequest, res: Response): 
           { name: { contains: searchTerm, mode: 'insensitive' as Prisma.QueryMode } },
           { product: { name: { contains: searchTerm, mode: 'insensitive' as Prisma.QueryMode } } },
         ],
+        product: { archivedAt: null },
       },
       include: {
         product: {
@@ -220,6 +243,7 @@ export const getLowStockProducts = async (req: AuthenticatedRequest, res: Respon
         stockQuantity: {
           lte: isNaN(threshold) ? 10 : threshold,
         },
+        product: { archivedAt: null },
       },
       include: {
         product: {

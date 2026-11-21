@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
 import { DEFAULT_IDS } from './lib/defaults';
@@ -154,7 +155,7 @@ async function seed() {
   const till = await prisma.till.upsert({
     where: { id: DEFAULT_IDS.till },
     update: { outletId: outlet.id },
-    create: { id: DEFAULT_IDS.till, name: 'Register #1', outletId: outlet.id },
+    create: { id: DEFAULT_IDS.till, name: 'Register #1', code: 'T01', outletId: outlet.id },
   });
   console.log('✅ Till:', till.name, `(${till.id})`);
 

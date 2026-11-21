@@ -27,6 +27,11 @@ export interface SyncSummary {
   /** Skipped because a previous pass isolated them as permanently rejected. */
   blocked: number;
   failures: SyncFailure[];
+  /**
+   * The pass stopped because the session expired (401). Nothing was marked
+   * failed: every queued sale is still pending and syncs once someone signs in.
+   */
+  authRequired: boolean;
 }
 
 const SUCCESS_TOAST_MS = 4000;
@@ -161,7 +166,7 @@ export function syncAll(): Promise<SyncSummary> {
 }
 
 async function drainQueue(): Promise<SyncSummary> {
-  const empty: SyncSummary = { synced: 0, failed: 0, blocked: 0, failures: [] };
+  const empty: SyncSummary = { synced: 0, failed: 0, blocked: 0, failures: [], authRequired: false };
   if (!navigator.onLine) return empty;
 
   const queue = await getQueuedSales();
@@ -184,6 +189,19 @@ async function drainQueue(): Promise<SyncSummary> {
       summary.synced += 1;
     } catch (err) {
       summary.failed += 1;
+
+      // Expired or revoked session. The sale is fine; the credentials are not.
+      // Treating this 401 like any other 4xx used to mark every queued sale
+      // `failed` after a long offline shift outlived the 12h token. Leave it
+      // pending, and stop: every remaining sale would get the same 401.
+      if (err instanceof ApiError && err.isAuthError) {
+        const message = 'Signed out: sign in again to sync queued sales.';
+        await recordSyncFailure(item.id, message, false);
+        summary.failures.push({ id: item.id, message, permanent: false });
+        summary.authRequired = true;
+        console.warn(`Sync paused at ${item.id}: session expired.`);
+        break;
+      }
 
       // A 4xx means the server will reject this payload every time (stock gone,
       // stale variant id, bad till). Retrying it forever would wedge the queue

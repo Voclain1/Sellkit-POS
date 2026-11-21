@@ -95,7 +95,9 @@ export const getDashboard = async (req: AuthenticatedRequest, res: Response): Pr
         orderBy: { _sum: { totalPrice: 'desc' } },
         take: 10,
       }),
-      prisma.productVariant.count({ where: { stockQuantity: { lte: lowStockThreshold } } }),
+      prisma.productVariant.count({
+        where: { stockQuantity: { lte: lowStockThreshold }, product: { archivedAt: null } },
+      }),
     ]);
 
     const buckets = emptyBuckets(start, end);

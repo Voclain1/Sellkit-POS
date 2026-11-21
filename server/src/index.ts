@@ -1,9 +1,10 @@
+// Must be the first import: modules below read process.env at load time
+// (middleware/auth.ts captures JWT_SECRET), and imports are evaluated before any
+// statement in this file runs, so a dotenv.config() call here would come too late.
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import apiRouter from './routes';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,9 +34,10 @@ app.use((_req: Request, res: Response) => {
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled Server Error:', err);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message || 'An unexpected error occurred',
+  // Malformed JSON bodies surface here from express.json() as a 400.
+  const status = typeof err?.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+  res.status(status).json({
+    error: status === 500 ? 'Internal Server Error' : err.message || 'Bad request',
   });
 });
 
